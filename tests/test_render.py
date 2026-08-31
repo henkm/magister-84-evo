@@ -143,3 +143,9 @@ def test_subject_gets_the_full_width_when_there_is_no_room(tekeningen):
     onderwerp = "abcdefghijklmnopqrst"
     M.lesregel(42, _les(vak=onderwerp, lokaal=""))
     assert onderwerp in [c[3] for c in teksten(tekeningen)]
+
+def test_teacher_name_never_crosses_the_right_edge(tekeningen):
+    M.lesregel(42, _les(docent="van der Meulen-Jansen (VDM)"))
+    for c in teksten(tekeningen):
+        x, s = c[1], c[3]
+        assert x + M.text_width(s) <= M.RIGHT, c

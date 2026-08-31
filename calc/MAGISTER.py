@@ -237,7 +237,8 @@ def lesregel(y, rij, geselecteerd=False):
     if lokaal:
         tekst(TEKST_X + breedte + ADVANCE, y + 5, lokaal, GEDEMPT)
         breedte += ADVANCE + text_width(lokaal)
-    tekst(TEKST_X, y + 16, rij[L_DOCENT], GEDEMPT)
+    docent = truncate(rij[L_DOCENT], RIGHT - TEKST_X)
+    tekst(TEKST_X, y + 16, docent, GEDEMPT)
 
     if rij[L_STATUS] == "vervallen":
         vlak(TEKST_X, y + 10, breedte, 1, GEDEMPT)
