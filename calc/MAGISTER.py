@@ -163,7 +163,8 @@ def voetbalk(links, rechts=""):
 def scrollbar(eerste, zichtbaar, totaal):
     if totaal <= zichtbaar:
         return
+    eerste = max(0, min(eerste, totaal - zichtbaar))
     vlak(311, 42, 4, 138, BAND)
     hoogte = max(8, 138 * zichtbaar // totaal)
-    top = 42 + (138 - hoogte) * eerste // max(1, totaal - zichtbaar)
+    top = 42 + (138 - hoogte) * eerste // (totaal - zichtbaar)
     vlak(311, top, 4, hoogte, AZUUR)
