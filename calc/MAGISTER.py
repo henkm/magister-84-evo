@@ -10,9 +10,10 @@ except ImportError:      # op de Mac tijdens tests
 # --- gemeten op het apparaat, niet aangenomen ---
 ADVANCE = 10
 LINE = 11
-SCREEN_W = 320
-SCREEN_H = 210
+SCREEN_W = 319
+SCREEN_H = 209
 RIGHT = 313
+MAX_TEKENS = 32     # gemeten: het 32e teken is nog volledig zichtbaar op 319 px breedte
 
 # --- palet ---
 BLAUW = (11, 107, 181)
@@ -46,8 +47,8 @@ def truncate(s, px):
     uit = ""
     for w in woorden:
         kandidaat = w if not uit else uit + " " + w
-        # Only include word if there's space left for the dot after it
-        if text_width(kandidaat) + ADVANCE >= px:
+        # Include word if text + dot fits within px
+        if text_width(kandidaat) + ADVANCE > px:
             break
         uit = kandidaat
     if not uit:
