@@ -91,3 +91,28 @@ def wrap(s, px):
     if huidig:
         regels.append(huidig)
     return regels
+
+
+# --- veldconstanten voor DAGEN[i][3] ---
+L_SOORT, L_BEGIN, L_EIND, L_UUR, L_VAK, L_LOKAAL, L_DOCENT, \
+    L_STATUS, L_CHIP, L_TEKST, L_OMS = range(11)
+
+try:
+    from MAGDATA import (GESYNCT, GESYNCT_UREN, LEERLING, PERIODE,
+                         DAGEN, VAKKEN)
+    _DATA_FOUT = ""
+except Exception as e:       # ontbrekend of halverwege afgebroken
+    GESYNCT, GESYNCT_UREN, LEERLING, PERIODE = "", 0, "", ""
+    DAGEN, VAKKEN = [], []
+    _DATA_FOUT = str(e)
+
+
+def data_ok():
+    return not _DATA_FOUT and len(DAGEN) > 0
+
+
+def dag_index(datum):
+    for i in range(len(DAGEN)):
+        if DAGEN[i][0] == datum:
+            return i
+    return 0
