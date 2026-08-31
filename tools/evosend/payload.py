@@ -38,8 +38,12 @@ def name_to_tichars(name):
     out = ""
     for ch in name:
         if "A" <= ch <= "Z":
+            # 0xE800 (59392): private-use area offset for letters A-Z
+            # See docs/superpowers/specs/2026-08-31-magister-ti84-evo-design.md section 4
             out += chr(ord(ch) - 65 + 59392)
         elif "0" <= ch <= "9":
+            # 0xE401 (58369): private-use area offset for digits 0-9
+            # See docs/superpowers/specs/2026-08-31-magister-ti84-evo-design.md section 4
             out += chr(ord(ch) - 48 + 58369)
         else:
             raise ValueError("naam %r bevat een teken dat niet kan: %r"
@@ -64,7 +68,12 @@ def _u32le(n):
 
 
 def build_container(name, source):
+    if len(source) > 0xFFFF:
+        raise ValueError("broncode is %d bytes, maar mag niet groter zijn dan %d bytes"
+                         % (len(source), 0xFFFF))
     nb = name.encode()
+    # 18: fixed overhead bytes (4 header + 4 total size + 4 name len + 1 padding + 2 source len + 2 type)
+    # See docs/superpowers/specs/2026-08-31-magister-ti84-evo-design.md section 4
     total = len(source) + len(nb) + 18
     out = (bytes([19, 1, 0, 0]) + _u32le(total) + _u32le(len(nb)) + nb
            + bytes([0]) + bytes([len(source) & 255, (len(source) >> 8) & 255])
@@ -75,6 +84,8 @@ def build_container(name, source):
 
 
 def payload_checksum(data):
+    # 3/1: word-skip for even/odd length (excludes last 1-2 words from checksum)
+    # See docs/superpowers/specs/2026-08-31-magister-ti84-evo-design.md section 4
     words = max(0, (len(data) >> 1) - (3 if len(data) % 2 == 0 else 1))
     n = 0
     for i in range(words):

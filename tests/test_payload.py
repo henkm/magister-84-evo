@@ -51,3 +51,11 @@ def test_transfer_url_carries_encoded_name_and_type():
     url = p.transfer_url("MAGDATA")
     assert url.startswith("hh01/xfr/var?name=%EE")
     assert "&type=15&memtarget=0&policy=1" in url
+
+def test_container_rejects_oversized_source():
+    with pytest.raises(ValueError):
+        p.build_container("TEST", b"x" * 65536)
+
+def test_container_accepts_maximum_source_size():
+    c = p.build_container("TEST", b"x" * 65535)
+    assert len(c) > 0
