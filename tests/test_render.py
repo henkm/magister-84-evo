@@ -112,3 +112,34 @@ def test_gap_row_draws_rules_not_a_band(tekeningen):
     assert not [c for c in v if c[3] == 319 and c[4] == 26]
     assert ("fill_rect", 8, 46, 64, 1) in v
     assert ("draw_text", 80, 42, "tussenuur 09:45-10:30") in teksten(tekeningen)
+
+def test_room_text_never_overlaps_the_chip(tekeningen):
+    for chip in M.CHIP_KLEUR:
+        tekeningen.clear()
+        M.lesregel(42, _les(chip=chip))
+        chip_x = M.RIGHT - M.chip_breedte(chip)
+        kamer = [c for c in teksten(tekeningen) if c[3].startswith("- ")]
+        assert kamer, chip
+        x, s = kamer[0][1], kamer[0][3]
+        assert x + M.text_width(s) <= chip_x, (chip, x, s)
+
+def test_long_subject_and_room_stay_within_the_screen(tekeningen):
+    M.lesregel(42, _les(vak="wiskunde D versneld traject bovenbouw",
+                         lokaal="A1.23"))
+    for c in teksten(tekeningen):
+        x, s = c[1], c[3]
+        assert x + M.text_width(s) <= M.RIGHT, c
+
+def test_cancelled_strikethrough_stays_within_the_screen(tekeningen):
+    M.lesregel(42, _les(status="vervallen",
+                         vak="wiskunde D versneld traject bovenbouw",
+                         lokaal="A1.23"))
+    doorhaling = [c for c in vlakken(tekeningen) if c[4] == 1 and c[2] == 52]
+    assert doorhaling
+    x, w = doorhaling[0][1], doorhaling[0][3]
+    assert x + w <= M.RIGHT
+
+def test_subject_gets_the_full_width_when_there_is_no_room(tekeningen):
+    onderwerp = "abcdefghijklmnopqrst"
+    M.lesregel(42, _les(vak=onderwerp, lokaal=""))
+    assert onderwerp in [c[3] for c in teksten(tekeningen)]

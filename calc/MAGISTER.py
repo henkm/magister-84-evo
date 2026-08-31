@@ -216,16 +216,30 @@ def lesregel(y, rij, geselecteerd=False):
     tekst(BADGE_X + (BADGE_W - text_width(uur)) // 2, y + 8, uur, WIT)
 
     chip = rij[L_CHIP]
-    ruimte = RIGHT - TEKST_X - (chip_breedte(chip) + 8 if chip else 0)
-    vak = truncate(rij[L_VAK], ruimte)
+    if chip:
+        beschikbaar = RIGHT - chip_breedte(chip) - 8 - TEKST_X
+    else:
+        beschikbaar = RIGHT - TEKST_X
+
+    # De kolom is voor het hele blok (vak + lokaal), niet alleen het vak: het
+    # lokaal wint als de ruimte krap is, want dat is wat je in de gang nodig
+    # hebt. Past het vak dan niet eens voor één teken, dan vervalt het lokaal.
+    lokaal = ("- " + rij[L_LOKAAL]) if rij[L_LOKAAL] else ""
+    reserve = text_width(lokaal) + ADVANCE if lokaal else 0
+    vak_ruimte = beschikbaar - reserve
+    if lokaal and vak_ruimte < ADVANCE:
+        lokaal = ""
+        vak_ruimte = beschikbaar
+
+    vak = truncate(rij[L_VAK], vak_ruimte)
     tekst(TEKST_X, y + 5, vak, voorgrond)
-    if rij[L_LOKAAL]:
-        tekst(TEKST_X + text_width(vak) + ADVANCE, y + 5,
-              "- " + rij[L_LOKAAL], GEDEMPT)
+    breedte = text_width(vak)
+    if lokaal:
+        tekst(TEKST_X + breedte + ADVANCE, y + 5, lokaal, GEDEMPT)
+        breedte += ADVANCE + text_width(lokaal)
     tekst(TEKST_X, y + 16, rij[L_DOCENT], GEDEMPT)
 
     if rij[L_STATUS] == "vervallen":
-        breedte = text_width(vak) + ADVANCE + text_width("- " + rij[L_LOKAAL])
         vlak(TEKST_X, y + 10, breedte, 1, GEDEMPT)
 
     if chip:
