@@ -72,7 +72,8 @@ def build_container(name, source):
         raise ValueError("broncode is %d bytes, maar mag niet groter zijn dan %d bytes"
                          % (len(source), 0xFFFF))
     nb = name.encode()
-    # 18: fixed overhead bytes (4 header + 4 total size + 4 name len + 1 padding + 2 source len + 2 type)
+    # 18: 17 bytes of fixed fields (4 header + 4 total size + 4 name len + 2 source len + 2 type + 1 null)
+    # plus 1 byte of trailing padding added by the fill-to-total step below.
     # See docs/superpowers/specs/2026-08-31-magister-ti84-evo-design.md section 4
     total = len(source) + len(nb) + 18
     out = (bytes([19, 1, 0, 0]) + _u32le(total) + _u32le(len(nb)) + nb
@@ -84,7 +85,8 @@ def build_container(name, source):
 
 
 def payload_checksum(data):
-    # 3/1: word-skip for even/odd length (excludes last 1-2 words from checksum)
+    # Excludes 3 words (6 bytes) from checksum if length is even, 1 word (2 bytes) if odd.
+    # These values are from the spec capture; the common case (even) skips the final checksum itself.
     # See docs/superpowers/specs/2026-08-31-magister-ti84-evo-design.md section 4
     words = max(0, (len(data) >> 1) - (3 if len(data) % 2 == 0 else 1))
     n = 0
