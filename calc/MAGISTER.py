@@ -334,3 +334,130 @@ def toon_dag(i, selectie=0, scroll=0):
         voetbalk("^v kies  ENTER open  <> dag", "2 cijf")
     else:
         voetbalk("<> dag  ENTER open  CLR vandaag")
+
+
+# --- tekenlaag: lesdetail, vakkenlijst en cijfers ---
+
+def toon_lesdetail(dag_i, rij_i, scroll=0):
+    rijen = DAGEN[dag_i][3]
+    rij = rijen[rij_i]
+    vlak(0, 0, 319, 209, PAGINA)
+    kop("LESUUR " + rij[L_UUR], DAGEN[dag_i][1])
+
+    _, accent, badge, voorgrond = _lesregel_kleuren(rij[L_STATUS])
+    vlak(0, 22, 319, 52, BAND)
+    vlak(0, 22, 4, 52, accent)
+    vlak(10, 30, BADGE_W, 18, badge)
+    tekst(10 + (BADGE_W - text_width(rij[L_UUR])) // 2, 34, rij[L_UUR], WIT)
+
+    chip = rij[L_CHIP]
+    chip_b = chip_breedte(chip) if chip else 0
+
+    # De tijd staat rechts uitgelijnd in plaats van op een vaste x: "hh:mm-
+    # hh:mm" is altijd 110px breed, en op een vaste x=225 loopt dat voorbij
+    # de rechterrand (225+110=335 > 319). De vaknaam krijgt zijn budget pas
+    # nadat de tijd-positie bekend is, zodat de twee elkaar nooit raken.
+    tijd = rij[L_BEGIN] + "-" + rij[L_EIND]
+    tijd_x = right_x(tijd)
+    tekst(54, 31, truncate(rij[L_VAK], tijd_x - 8 - 54), voorgrond)
+    tekst(54, 45, truncate("lokaal " + rij[L_LOKAAL], RIGHT - 54), GEDEMPT)
+    # Idem voor de docent: die deelt zijn regel met de chip als die er is.
+    docent_breedte = (RIGHT - chip_b - 8 - 54) if chip else (RIGHT - 54)
+    tekst(54, 59, truncate(rij[L_DOCENT], docent_breedte), GEDEMPT)
+    tekst(tijd_x, 31, tijd, GEDEMPT)
+    if chip:
+        vlak(RIGHT - chip_b, 57, chip_b, 14, CHIP_KLEUR[chip])
+        tekst(RIGHT - chip_b + 4, 59, chip, WIT)
+
+    if rij[L_TEKST]:
+        label = "toets" if chip == "TOETS" else "huiswerk"
+        vlak(0, 78, 319, 17, WIT)
+        tekst(6, 81, label, BLAUW)
+        vlak(0, 95, 319, 1, AZUUR)
+        # Met een omschrijving erbij is er maar plek voor 4 regels huiswerk-
+        # tekst, anders raakt het omschrijving-blok de voetbalk (192).
+        max_regels = 4 if rij[L_OMS] else 6
+        regels = wrap(rij[L_TEKST], 307)[scroll:scroll + max_regels]
+        for n in range(len(regels)):
+            tekst(6, 101 + 12 * n, regels[n], DONKER)
+        if rij[L_OMS]:
+            y_oms = 101 + 12 * len(regels)
+            tekst(6, y_oms, "omschrijving", GEDEMPT)
+            tekst(6, y_oms + 12, truncate(rij[L_OMS], 307), GEDEMPT)
+    elif rij[L_OMS]:
+        tekst(6, 101, truncate(rij[L_OMS], 307), GEDEMPT)
+    else:
+        tekst(6, 101, "geen huiswerk of toets", GEDEMPT)
+
+    voetbalk("<> les  CLEAR terug")
+
+
+def toon_vakken(selectie=0, scroll=0):
+    vlak(0, 0, 319, 209, PAGINA)
+    if not VAKKEN:
+        kop("VAKKEN", PERIODE)
+        contextbalk("gemiddelde per vak", GESYNCT, GESYNCT_UREN >= 24)
+        mededeling("nog geen cijfers in " + PERIODE, "dit is geen fout")
+        voetbalk("1 rooster  CLEAR terug")
+        return
+
+    # De rijen worden vóór kop()/contextbalk() getekend. Puur cosmetisch
+    # maakt de volgorde niets uit (de kopband beslaat y=0-39, de rijen
+    # beginnen bij y=42, dus niets overlapt); maar kop() tekent zelf een band
+    # van 319x22 op y=0 - exact dezelfde afmeting als een vakregel. Zou kop()
+    # eerst komen, dan is die band het eerste 319x22-vlak in de tekenlijst en
+    # schuift dat de rij-y's in een test die op (breedte, hoogte) filtert.
+    zichtbaar = VAKKEN[scroll:scroll + ZICHTBAAR]
+    for n in range(len(zichtbaar)):
+        y = LIJST_Y + n * 24
+        naam, gem, _ = zichtbaar[n]
+        onvoldoende = is_onvoldoende(gem)
+        accent = ORANJE if onvoldoende else (GEDEMPT if not gem else AZUUR)
+        vlak(0, y, 319, 22, SELECTIE if scroll + n == selectie else BAND)
+        vlak(0, y, 4, 22, accent)
+        # De vaknaam deelt zijn regel met het (rechts uitgelijnde) gemiddelde
+        # of met "geen"; het budget wordt van die kolom afgeleid zodat de
+        # twee elkaar nooit raken, in plaats van een vaste breedte te gokken.
+        kolom = right_x(gem) if gem else 265
+        tekst(14, y + 6, truncate(naam, kolom - 8 - 14), DONKER)
+        if gem:
+            tekst(kolom, y + 6, gem, ORANJE if onvoldoende else DONKER)
+        else:
+            tekst(kolom, y + 6, "geen", GEDEMPT)
+        if scroll + n == selectie:
+            rand(0, y, 317, 20, BLAUW)
+
+    kop("VAKKEN", PERIODE)
+    contextbalk("gemiddelde per vak", GESYNCT, GESYNCT_UREN >= 24)
+
+    rest = len(VAKKEN) - scroll - ZICHTBAAR
+    if rest > 0:
+        tekst(8, 161, "v %d vakken meer" % rest, GEDEMPT)
+    voetbalk("^v kies  ENTER cijfers", "1 rstr")
+
+
+def toon_cijfers(vak_i, scroll=0):
+    naam, gem, cijfers = VAKKEN[vak_i]
+    vlak(0, 0, 319, 209, PAGINA)
+    # Ook hier: het titelbudget hangt af van hoeveel ruimte "gem ..." rechts
+    # nodig heeft, in plaats van een vaste 240px die bij een lang, spatieloos
+    # vaknaam over de rechts uitgelijnde tekst heen kan lopen.
+    rechts = "gem " + (gem if gem else "-")
+    titel_breedte = right_x(rechts) - 8 - 6
+    kop(truncate(naam, titel_breedte).upper(), rechts)
+    contextbalk("%d cijfers" % len(cijfers), PERIODE)
+
+    zichtbaar = cijfers[scroll:scroll + ZICHTBAAR]
+    for n in range(len(zichtbaar)):
+        y = LIJST_Y + n * RIJ_PITCH
+        oms, cijfer, meta, soort = zichtbaar[n]
+        blokkleur = {"onvoldoende": ORANJE, "tekst": GEDEMPT}.get(soort, BLAUW)
+        vlak(0, y, 319, 26, BAND)
+        vlak(0, y, 4, 26, blokkleur)
+        tekst(14, y + 5, truncate(oms, 267), DONKER)
+        tekst(14, y + 16, truncate(meta, 267), GEDEMPT)
+        vlak(281, y + 4, 32, 18, blokkleur)
+        tekst(281 + (32 - text_width(cijfer)) // 2, y + 8, cijfer, WIT)
+
+    scrollbar(scroll, ZICHTBAAR, len(cijfers))
+    voetbalk("^v scroll  CLEAR vakken")

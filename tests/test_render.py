@@ -242,3 +242,199 @@ def test_selection_outside_the_window_draws_no_selection_frame(tekeningen):
     assert randen == []
     kleuren = [c[1:] for c in tekeningen if c[0] == "set_color"]
     assert M.SELECTIE not in kleuren
+
+# --- lesdetail, vakkenlijst, cijfers ---
+
+def test_detail_uses_the_wide_badge_and_x54_text(tekeningen):
+    M.toon_lesdetail(0, 2)
+    v = vlakken(tekeningen)
+    assert ("fill_rect", 0, 22, 319, 52) in v
+    assert ("fill_rect", 10, 30, 36, 18) in v
+    assert ("draw_text", 54, 31, "natuurkunde") in teksten(tekeningen)
+
+def test_detail_wraps_homework_at_30_characters(tekeningen):
+    M.toon_lesdetail(0, 2)
+    blok = [c for c in teksten(tekeningen) if c[2] >= 101 and c[1] == 6]
+    assert blok
+    for c in blok:
+        assert M.fits(c[3], 307)
+
+def test_detail_without_homework_says_so(tekeningen):
+    M.toon_lesdetail(1, 0)
+    assert "geen huiswerk of toets" in [c[3] for c in teksten(tekeningen)]
+
+def test_subject_list_uses_pitch_24(tekeningen):
+    M.toon_vakken(0, 0)
+    banden = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 22]
+    assert [c[2] for c in banden][:3] == [42, 66, 90]
+
+def test_failing_average_is_orange(tekeningen):
+    M.toon_vakken(0, 0)
+    assert ("set_color",) + M.ORANJE in [c for c in tekeningen if c[0] == "set_color"]
+
+def test_a_ten_is_not_marked_as_failing():
+    assert M.is_onvoldoende("5,1")
+    assert not M.is_onvoldoende("10,0")
+    assert not M.is_onvoldoende("5,5")
+    assert not M.is_onvoldoende("vr")
+    assert not M.is_onvoldoende("")
+
+def test_missing_average_shows_geen(tekeningen):
+    M.toon_vakken(0, 0)
+    assert "geen" in [c[3] for c in teksten(tekeningen)]
+
+def test_grade_rows_place_the_block_at_281(tekeningen):
+    M.toon_cijfers(0, 0)
+    assert ("fill_rect", 281, 46, 32, 18) in vlakken(tekeningen)
+
+def test_non_numeric_grade_is_grey(tekeningen):
+    M.toon_cijfers(2, 0)
+    assert ("set_color",) + M.GEDEMPT in [c for c in tekeningen if c[0] == "set_color"]
+
+# --- randgevallen: niets buiten het scherm, niets over de buur ---
+#
+# Dit project heeft drie keer eerder code gemerged die buiten het 319x209
+# oppervlak tekende, elke keer met een groene testsuite. Onderstaande tests
+# toetsen de eigenschap in plaats van een pixel, met opzettelijk lange
+# tekst zodat een echte overschrijding zichtbaar zou worden.
+
+def _stel_dagen_in(rij):
+    return [("2026-09-01", "di 01-09", "vandaag", [rij])]
+
+def test_detail_stays_within_the_screen_and_columns_do_not_collide(tekeningen):
+    origineel = M.DAGEN
+    rij = ("les", "07:05", "23:55", "3-4",
+           "wiskunde D versneld traject bovenbouw internationale variant",
+           "A1.23 bovenbouwvleugel", "van der Meulen-Jansen-Bakker (VDM)",
+           "gewijzigd", "GEWIJZIGD",
+           "lees hoofdstuk 1 tot en met 9 helemaal door en maak alle opgaven " * 3,
+           "een erg lange omschrijving die makkelijk over de rand zou kunnen lopen")
+    M.DAGEN = _stel_dagen_in(rij)
+    try:
+        M.toon_lesdetail(0, 0)
+    finally:
+        M.DAGEN = origineel
+
+    for c in tekeningen:
+        if c[0] in ("fill_rect", "draw_rect"):
+            x, y, w, h = c[1], c[2], c[3], c[4]
+            assert x + w <= M.SCREEN_W, f"{c} loopt over de rechterrand"
+            assert y + h <= M.SCREEN_H, f"{c} loopt over de onderrand"
+        if c[0] == "draw_text":
+            x, y, s = c[1], c[2], c[3]
+            assert x + M.text_width(s) <= M.SCREEN_W, f"{c} loopt over de rechterrand"
+            assert y <= M.SCREEN_H, f"{c} loopt over de onderrand"
+
+    # vaknaam mag niet onder/over de tijd lopen (beide op y=31)
+    regel31 = [(c[1], c[3]) for c in teksten(tekeningen) if c[2] == 31]
+    assert len(regel31) == 2
+    (x1, s1), (x2, s2) = sorted(regel31)
+    assert x1 + M.text_width(s1) <= x2, "vaknaam botst met de tijd"
+
+    # docent mag niet onder de chip lopen
+    docent = [c for c in teksten(tekeningen) if c[2] == 59 and c[1] == 54][0]
+    chip_rect = [c for c in vlakken(tekeningen) if c[2] == 57 and c[4] == 14][0]
+    assert docent[1] + M.text_width(docent[3]) <= chip_rect[1], \
+        "docentnaam botst met de chip"
+
+    # de huiswerk/omschrijving-kolom (x=6, tussen de scheidingslijn op y=95
+    # en de voetbalk op y=192) mag niet in de voetbalk terechtkomen
+    kolom = [c for c in teksten(tekeningen) if c[1] == 6 and 95 < c[2] < 192]
+    assert kolom
+    for c in kolom:
+        assert c[2] + M.LINE <= 192, f"{c} loopt in de voetbalk"
+
+def test_subject_list_stays_within_the_screen_and_name_never_hits_average(tekeningen):
+    origineel = M.VAKKEN
+    M.VAKKEN = [
+        ("wiskunde D versneld programma internationale variant bovenbouw", "10,0", []),
+        ("aardrijkskunde en geschiedenis gecombineerd blok", "5,4", []),
+        ("natuurkunde", "5,1", []),
+        ("scheikunde", "", []),
+        ("biologie voor de bovenbouw met uitgebreide beschrijving", "6,3", []),
+        ("Frans", "7,0", []),
+    ]
+    try:
+        M.toon_vakken(0, 0)
+    finally:
+        M.VAKKEN = origineel
+
+    for c in tekeningen:
+        if c[0] in ("fill_rect", "draw_rect"):
+            x, y, w, h = c[1], c[2], c[3], c[4]
+            assert x + w <= M.SCREEN_W, f"{c} loopt over de rechterrand"
+            assert y + h <= M.SCREEN_H, f"{c} loopt over de onderrand"
+        if c[0] == "draw_text":
+            x, y, s = c[1], c[2], c[3]
+            assert x + M.text_width(s) <= M.SCREEN_W, f"{c} loopt over de rechterrand"
+            assert y <= M.SCREEN_H, f"{c} loopt over de onderrand"
+
+    for y in (42, 66, 90, 114, 138):
+        regel = [c for c in teksten(tekeningen) if c[2] == y + 6]
+        naam = [c for c in regel if c[1] == 14][0]
+        rest = [c for c in regel if c[1] != 14]
+        assert rest, "geen gemiddelde/geen-tekst gevonden op deze regel"
+        for r in rest:
+            assert naam[1] + M.text_width(naam[3]) <= r[1], \
+                "vaknaam botst met het gemiddelde"
+
+    meer = [c for c in teksten(tekeningen) if "meer" in c[3]]
+    assert meer
+    for c in meer:
+        assert c[2] + M.LINE <= 192, f"'meer'-tekst {c} loopt in de voetbalk"
+
+def test_grade_rows_stay_within_the_screen_and_description_never_hits_the_block(tekeningen):
+    origineel = M.VAKKEN
+    M.VAKKEN = [
+        ("wiskunde D", "7,0", [
+            ("Een heel erg lange beschrijving van deze specifieke toets die de "
+             "rand nadert", "10,0",
+             "12-06 - P1 - een lange metatekst die ook bijna over de rand loopt",
+             "normaal"),
+            ("Tweede toets", "4,0", "26-06 - P1 - telt mee", "onvoldoende"),
+            ("Vrijstelling", "vr", "01-06 - P1 - vrijstelling", "tekst"),
+        ]),
+    ]
+    try:
+        M.toon_cijfers(0, 0)
+    finally:
+        M.VAKKEN = origineel
+
+    for c in tekeningen:
+        if c[0] in ("fill_rect", "draw_rect"):
+            x, y, w, h = c[1], c[2], c[3], c[4]
+            assert x + w <= M.SCREEN_W, f"{c} loopt over de rechterrand"
+            assert y + h <= M.SCREEN_H, f"{c} loopt over de onderrand"
+        if c[0] == "draw_text":
+            x, y, s = c[1], c[2], c[3]
+            assert x + M.text_width(s) <= M.SCREEN_W, f"{c} loopt over de rechterrand"
+            assert y <= M.SCREEN_H, f"{c} loopt over de onderrand"
+
+    for y in (42, 70, 98):
+        regel = [c for c in teksten(tekeningen)
+                 if c[1] == 14 and c[2] in (y + 5, y + 16)]
+        assert regel
+        for c in regel:
+            assert c[1] + M.text_width(c[3]) <= 281, \
+                "omschrijving/meta botst met het cijferblok"
+
+def test_grade_screen_title_never_hits_the_average(tekeningen):
+    # Eén woord zonder spaties, zodat truncate() niet op een woordgrens kan
+    # afbreken en het volledige budget benut - precies het scenario waarin
+    # een vaste breedte voor de titel de rechts uitgelijnde "gem ..." tekst
+    # zou kunnen raken.
+    origineel = M.VAKKEN
+    M.VAKKEN = [
+        ("natuurwetenschappenexamenprogrammabovenbouwklassen", "10,0", [
+            ("iets", "8,0", "meta", "normaal"),
+        ]),
+    ]
+    try:
+        M.toon_cijfers(0, 0)
+    finally:
+        M.VAKKEN = origineel
+
+    titel = [c for c in teksten(tekeningen) if c[1] == 6 and c[2] == 6][0]
+    rechts = [c for c in teksten(tekeningen) if c[2] == 6 and c[1] != 6][0]
+    assert titel[1] + M.text_width(titel[3]) <= rechts[1], \
+        "titel botst met het rechts uitgelijnde gemiddelde"
