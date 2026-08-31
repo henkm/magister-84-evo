@@ -6,6 +6,21 @@ def vlakken(calls):
 def teksten(calls):
     return [c for c in calls if c[0] == "draw_text"]
 
+def kleuren_in_gebied(calls, y_min, y_max):
+    """Kleuren van teken-oproepen (fill_rect/draw_rect/draw_text) waarvan de
+    y-positie in [y_min, y_max) valt, gekoppeld via de voorafgaande
+    set_color-oproep."""
+    kleuren = []
+    for i, c in enumerate(calls):
+        if c[0] != "set_color":
+            continue
+        volgende = calls[i + 1] if i + 1 < len(calls) else None
+        if volgende and volgende[0] in ("fill_rect", "draw_rect", "draw_text"):
+            y = volgende[2]
+            if y_min <= y < y_max:
+                kleuren.append(c[1:])
+    return kleuren
+
 def test_kop_matches_the_design_grid(tekeningen):
     M.kop("VANDAAG", "ma 31-08")
     assert ("fill_rect", 0, 0, 319, 22) in vlakken(tekeningen)
@@ -177,9 +192,27 @@ def test_empty_day_shows_the_notice_block(tekeningen):
     t = [c[3] for c in teksten(tekeningen)]
     assert "geen lessen op deze dag" in t
 
-def test_empty_day_uses_no_orange(tekeningen):
+def test_empty_day_notice_uses_no_orange(tekeningen):
+    # Het ontwerp verbiedt dramatiseren van een lege dag: de mededeling en de
+    # (afwezige) lijst gebruiken nooit oranje. De contextbalk erboven mag dat
+    # wel - zie test_empty_day_context_bar_still_shows_staleness_marker.
     M.toon_dag(2, 0, 0)
-    assert ("set_color",) + M.ORANJE not in [c for c in tekeningen if c[0] == "set_color"]
+    kleuren = kleuren_in_gebied(tekeningen, 40, 192)
+    assert M.ORANJE not in kleuren
+
+def test_empty_day_context_bar_still_shows_staleness_marker(tekeningen):
+    # Het oranje vinkje zegt niets over de dag, maar alles over de data: een
+    # verouderde sync moet ook op een lege dag zichtbaar blijven, want "geen
+    # lessen vandaag" uit een oude sync is precies wat een leerling moet
+    # wantrouwen.
+    origineel = M.GESYNCT_UREN
+    M.GESYNCT_UREN = 24
+    try:
+        M.toon_dag(2, 0, 0)
+    finally:
+        M.GESYNCT_UREN = origineel
+    assert ("fill_rect", 169, 26, 6, 6) in vlakken(tekeningen)
+    assert ("draw_text", 181, 25, M.GESYNCT) in teksten(tekeningen)
 
 def test_scroll_past_the_end_of_the_list_is_clamped(tekeningen):
     # Dag 0 heeft 6 rijen; met ZICHTBAAR=5 is scroll=1 de hoogst geldige
@@ -188,3 +221,24 @@ def test_scroll_past_the_end_of_the_list_is_clamped(tekeningen):
     M.toon_dag(0, 0, 5)
     banden = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 26]
     assert [c[2] for c in banden] == [70, 98, 126, 154]
+
+def test_negative_scroll_is_clamped_to_zero(tekeningen):
+    M.toon_dag(0, 0, -3)
+    banden = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 26]
+    assert [c[2] for c in banden][:3] == [42, 98, 126]
+
+def test_selected_row_within_the_window_gets_the_selection_frame(tekeningen):
+    # selectie=2 is de natuurkunde-les (rij-index 2), zichtbaar bij scroll=0.
+    M.toon_dag(0, 2, 0)
+    randen = [c for c in tekeningen if c[0] == "draw_rect"]
+    assert ("draw_rect", 0, 98, 317, 24) in randen
+
+def test_selection_outside_the_window_draws_no_selection_frame(tekeningen):
+    # selectie=5 (geschiedenis) valt buiten het zichtbare venster bij
+    # scroll=0. Dan mag er geen enkele rij als geselecteerd getekend worden -
+    # de verkeerde rij markeren zou misleidend zijn.
+    M.toon_dag(0, 5, 0)
+    randen = [c for c in tekeningen if c[0] == "draw_rect"]
+    assert randen == []
+    kleuren = [c[1:] for c in tekeningen if c[0] == "set_color"]
+    assert M.SELECTIE not in kleuren
