@@ -353,6 +353,7 @@ def test_subject_list_stays_within_the_screen_and_name_never_hits_average(tekeni
         ("scheikunde", "", []),
         ("biologie voor de bovenbouw met uitgebreide beschrijving", "6,3", []),
         ("Frans", "7,0", []),
+        ("Duits", "8,0", []),
     ]
     try:
         M.toon_vakken(0, 0)
@@ -369,7 +370,7 @@ def test_subject_list_stays_within_the_screen_and_name_never_hits_average(tekeni
             assert x + M.text_width(s) <= M.SCREEN_W, f"{c} loopt over de rechterrand"
             assert y <= M.SCREEN_H, f"{c} loopt over de onderrand"
 
-    for y in (42, 66, 90, 114, 138):
+    for y in (42, 66, 90, 114, 138, 162):
         regel = [c for c in teksten(tekeningen) if c[2] == y + 6]
         naam = [c for c in regel if c[1] == 14][0]
         rest = [c for c in regel if c[1] != 14]
@@ -378,10 +379,38 @@ def test_subject_list_stays_within_the_screen_and_name_never_hits_average(tekeni
             assert naam[1] + M.text_width(naam[3]) <= r[1], \
                 "vaknaam botst met het gemiddelde"
 
-    meer = [c for c in teksten(tekeningen) if "meer" in c[3]]
-    assert meer
-    for c in meer:
-        assert c[2] + M.LINE <= 192, f"'meer'-tekst {c} loopt in de voetbalk"
+    # 7 vakken, 6 zichtbaar: de scrollbar (niet een onderschrift) signaleert
+    # dat er meer is.
+    assert ("fill_rect", 311, 42, 4, 138) in vlakken(tekeningen)
+
+def test_subject_list_shows_six_rows(tekeningen):
+    origineel = M.VAKKEN
+    M.VAKKEN = [("vak %d" % i, "", []) for i in range(8)]
+    try:
+        M.toon_vakken(0, 0)
+    finally:
+        M.VAKKEN = origineel
+    # kop() tekent zelf ook een 319x22-band (op y=0); die staat na de rijen
+    # in de tekenlijst (zie de omwisseling hierboven), dus [:6] pakt precies
+    # de zes vakregels.
+    banden = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 22]
+    assert [c[2] for c in banden][:6] == [42, 66, 90, 114, 138, 162]
+
+def test_subject_list_scroll_past_the_end_is_clamped(tekeningen):
+    origineel = M.VAKKEN
+    M.VAKKEN = [("vak %d" % i, "", []) for i in range(8)]
+    try:
+        M.toon_vakken(0, 50)
+        na_te_ver = [c for c in vlakken(tekeningen)
+                     if c[3] == 319 and c[4] == 22]
+        tekeningen.clear()
+        M.toon_vakken(0, -5)
+        na_negatief = [c for c in vlakken(tekeningen)
+                       if c[3] == 319 and c[4] == 22]
+    finally:
+        M.VAKKEN = origineel
+    assert [c[2] for c in na_te_ver][:6] == [42, 66, 90, 114, 138, 162]
+    assert [c[2] for c in na_negatief][:6] == [42, 66, 90, 114, 138, 162]
 
 def test_grade_rows_stay_within_the_screen_and_description_never_hits_the_block(tekeningen):
     origineel = M.VAKKEN
@@ -438,3 +467,70 @@ def test_grade_screen_title_never_hits_the_average(tekeningen):
     rechts = [c for c in teksten(tekeningen) if c[2] == 6 and c[1] != 6][0]
     assert titel[1] + M.text_width(titel[3]) <= rechts[1], \
         "titel botst met het rechts uitgelijnde gemiddelde"
+
+def test_description_anchors_stay_fixed_regardless_of_body_length(tekeningen):
+    # Een lang huiswerk (meer dan 5 gewikkelde regels) mag het
+    # omschrijving-blok niet verplaatsen: het label en de tekst horen altijd
+    # op y=161/173, ongeacht hoeveel regels het lichaam nodig heeft.
+    origineel = M.DAGEN
+    lang_huiswerk = ("lees hoofdstuk 1 tot en met 9 helemaal door en maak "
+                      "alle opgaven van de herhalingstoets grondig ") * 3
+    rij = ("les", "10:30", "12:00", "3-4", "natuurkunde", "206", "Bos (BOS)",
+           "normaal", "TOETS", lang_huiswerk, "SO H1-H3")
+    M.DAGEN = [("2026-09-01", "di 01-09", "vandaag", [rij])]
+    try:
+        M.toon_lesdetail(0, 0)
+    finally:
+        M.DAGEN = origineel
+
+    assert len(M.wrap(lang_huiswerk, 307)) > 5, \
+        "testtekst moet meer dan 5 regels wikkelen om het scenario te testen"
+    t = teksten(tekeningen)
+    assert ("draw_text", 6, 161, "omschrijving") in t
+    beschrijving = [c for c in t if c[1] == 6 and c[2] == 173][0]
+    assert beschrijving[3] == M.truncate("SO H1-H3", 307)
+    # de vijf zichtbare regels blijven op hun eigen vaste rooster
+    lichaam = sorted(c[2] for c in t if c[1] == 6 and 101 <= c[2] <= 149)
+    assert lichaam == [101, 113, 125, 137, 149]
+    # en de overloop wordt gemeld op de sectiebalk, niet op een anker dat de
+    # omschrijving zou overschrijven
+    assert ("draw_text", M.right_x("v meer"), 81, "v meer") in t
+
+def test_detail_scroll_past_the_end_is_clamped(tekeningen):
+    origineel = M.DAGEN
+    lang_huiswerk = ("lees hoofdstuk 1 tot en met 9 helemaal door en maak "
+                      "alle opgaven van de herhalingstoets grondig ") * 3
+    rij = ("les", "10:30", "12:00", "3-4", "natuurkunde", "206", "Bos (BOS)",
+           "normaal", "", lang_huiswerk, "")
+    M.DAGEN = [("2026-09-01", "di 01-09", "vandaag", [rij])]
+    alle_regels = M.wrap(lang_huiswerk, 307)
+    try:
+        M.toon_lesdetail(0, 0, scroll=999)
+        te_ver = [c[3] for c in teksten(tekeningen)
+                  if c[1] == 6 and 101 <= c[2] <= 149]
+        tekeningen.clear()
+        M.toon_lesdetail(0, 0, scroll=-9)
+        negatief = [c[3] for c in teksten(tekeningen)
+                    if c[1] == 6 and 101 <= c[2] <= 149]
+    finally:
+        M.DAGEN = origineel
+    assert te_ver == alle_regels[max(0, len(alle_regels) - 5):]
+    assert negatief == alle_regels[:5]
+
+def test_grade_screen_scroll_past_the_end_is_clamped(tekeningen):
+    origineel = M.VAKKEN
+    M.VAKKEN = [
+        ("wiskunde D", "7,0", [
+            ("Toets %d" % i, "6,0", "meta", "normaal") for i in range(9)
+        ]),
+    ]
+    try:
+        M.toon_cijfers(0, 999)
+        te_ver = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 26]
+        tekeningen.clear()
+        M.toon_cijfers(0, -9)
+        negatief = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 26]
+    finally:
+        M.VAKKEN = origineel
+    assert [c[2] for c in te_ver] == [42, 70, 98, 126, 154]
+    assert [c[2] for c in negatief] == [42, 70, 98, 126, 154]

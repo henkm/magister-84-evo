@@ -374,16 +374,24 @@ def toon_lesdetail(dag_i, rij_i, scroll=0):
         vlak(0, 78, 319, 17, WIT)
         tekst(6, 81, label, BLAUW)
         vlak(0, 95, 319, 1, AZUUR)
-        # Met een omschrijving erbij is er maar plek voor 4 regels huiswerk-
-        # tekst, anders raakt het omschrijving-blok de voetbalk (192).
-        max_regels = 4 if rij[L_OMS] else 6
-        regels = wrap(rij[L_TEKST], 307)[scroll:scroll + max_regels]
+        # De omschrijving zit op een vast anker (161/173) zodat hij niet
+        # meebeweegt met de lengte van het huiswerk. Het lichaam wordt
+        # daarom altijd tot 5 regels beperkt, ook zonder omschrijving - vijf
+        # regels vanaf y=101 in stappen van 12 eindigt op y=149, ruim boven
+        # het vaste anker. Is er meer, dan komt dat niet op een anker dat de
+        # omschrijving overschrijft, maar als "v meer" op de sectiebalk
+        # zelf (y=81), die nooit door iets anders bezet wordt.
+        alle_regels = wrap(rij[L_TEKST], 307)
+        scroll = max(0, min(scroll, max(0, len(alle_regels) - 5)))
+        regels = alle_regels[scroll:scroll + 5]
         for n in range(len(regels)):
             tekst(6, 101 + 12 * n, regels[n], DONKER)
+        rest = len(alle_regels) - scroll - 5
+        if rest > 0:
+            tekst(right_x("v meer"), 81, "v meer", GEDEMPT)
         if rij[L_OMS]:
-            y_oms = 101 + 12 * len(regels)
-            tekst(6, y_oms, "omschrijving", GEDEMPT)
-            tekst(6, y_oms + 12, truncate(rij[L_OMS], 307), GEDEMPT)
+            tekst(6, 161, "omschrijving", GEDEMPT)
+            tekst(6, 173, truncate(rij[L_OMS], 307), GEDEMPT)
     elif rij[L_OMS]:
         tekst(6, 101, truncate(rij[L_OMS], 307), GEDEMPT)
     else:
@@ -407,7 +415,14 @@ def toon_vakken(selectie=0, scroll=0):
     # van 319x22 op y=0 - exact dezelfde afmeting als een vakregel. Zou kop()
     # eerst komen, dan is die band het eerste 319x22-vlak in de tekenlijst en
     # schuift dat de rij-y's in een test die op (breedte, hoogte) filtert.
-    zichtbaar = VAKKEN[scroll:scroll + ZICHTBAAR]
+    #
+    # Zes rijen (niet ZICHTBAAR=5): het ontwerp wil zes rijen capaciteit.
+    # Bij pitch 24 vanaf y=42 eindigt rij zes op y=184 - geen ruimte meer
+    # voor een "meer"-onderschrift naast de voetbalk (192), dus die vervalt
+    # ten gunste van de scrollbar die de andere twee lijstschermen ook al
+    # gebruiken.
+    scroll = max(0, min(scroll, max(0, len(VAKKEN) - 6)))
+    zichtbaar = VAKKEN[scroll:scroll + 6]
     for n in range(len(zichtbaar)):
         y = LIJST_Y + n * 24
         naam, gem, _ = zichtbaar[n]
@@ -430,9 +445,7 @@ def toon_vakken(selectie=0, scroll=0):
     kop("VAKKEN", PERIODE)
     contextbalk("gemiddelde per vak", GESYNCT, GESYNCT_UREN >= 24)
 
-    rest = len(VAKKEN) - scroll - ZICHTBAAR
-    if rest > 0:
-        tekst(8, 161, "v %d vakken meer" % rest, GEDEMPT)
+    scrollbar(scroll, 6, len(VAKKEN))
     voetbalk("^v kies  ENTER cijfers", "1 rstr")
 
 
@@ -447,6 +460,7 @@ def toon_cijfers(vak_i, scroll=0):
     kop(truncate(naam, titel_breedte).upper(), rechts)
     contextbalk("%d cijfers" % len(cijfers), PERIODE)
 
+    scroll = max(0, min(scroll, max(0, len(cijfers) - ZICHTBAAR)))
     zichtbaar = cijfers[scroll:scroll + ZICHTBAAR]
     for n in range(len(zichtbaar)):
         y = LIJST_Y + n * RIJ_PITCH
