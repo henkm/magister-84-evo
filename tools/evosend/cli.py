@@ -14,13 +14,12 @@ def main(argv=None):
     ap.add_argument("--poort", default=DEFAULT_PORT)
     args = ap.parse_args(argv)
 
-    with open(args.bestand, "rb") as f:
-        source = f.read()
-
     def toon(done, total):
         print("\r  %d/%d bytes" % (done, total), end="", file=sys.stderr)
 
     try:
+        with open(args.bestand, "rb") as f:
+            source = f.read()
         n = send_python(args.naam, source, args.poort, toon)
     except (TimeoutError, IOError, ValueError) as e:
         print("\nmislukt: %s" % e, file=sys.stderr)
