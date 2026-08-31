@@ -256,3 +256,81 @@ def gatregel(y, rij):
     vlak(8, y + 4, 64, 1, GEDEMPT)
     vlak(256, y + 4, 55, 1, GEDEMPT)
     tekst(80, y, "tussenuur %s-%s" % (rij[L_BEGIN], rij[L_EIND]), GEDEMPT)
+
+
+# --- tekenlaag: het roosterscherm ---
+
+RIJ_PITCH = 28
+LIJST_Y = 42
+ZICHTBAAR = 5
+
+
+def is_onvoldoende(cijfer):
+    """Waar bij een cijfer onder de 5,5. Niet-getallen zijn nooit onvoldoende.
+
+    Let op: dit moet numeriek, niet als tekst. Bij een tekstvergelijking is
+    "10,0" kleiner dan "5,5" en zou een tien rood kleuren.
+    """
+    if not cijfer:
+        return False
+    try:
+        return float(cijfer.replace(",", ".")) < 5.5
+    except ValueError:
+        return False
+
+
+def mededeling(regel1, regel2=""):
+    vlak(24, 96, 271, 40, BAND)
+    vlak(24, 96, 4, 40, AZUUR)
+    tekst(40, 105, regel1, DONKER)
+    if regel2:
+        tekst(40, 119, regel2, GEDEMPT)
+
+
+def _volgende_lesdag(i):
+    for j in range(i + 1, len(DAGEN)):
+        if DAGEN[j][3]:
+            return DAGEN[j][1]
+    return ""
+
+
+def toon_dag(i, selectie=0, scroll=0):
+    datum, kop_datum, bijschrift, rijen = DAGEN[i]
+    lessen = [r for r in rijen if r[L_SOORT] == "les"]
+    vandaag = bijschrift == "vandaag"
+    vlak(0, 0, 319, 209, PAGINA)
+    if vandaag:
+        kop("VANDAAG", kop_datum)
+        contextbalk("%d lessen" % len(lessen), GESYNCT, GESYNCT_UREN >= 24)
+    else:
+        kop("ROOSTER", "< " + kop_datum + " >")
+        contextbalk(bijschrift, GESYNCT, GESYNCT_UREN >= 24)
+
+    if not rijen:
+        volgende = _volgende_lesdag(i)
+        mededeling("geen lessen op deze dag",
+                   "volgende lesdag: " + volgende if volgende else "")
+        voetbalk("<> dag  CLR vandaag  2 cijfers")
+        return
+
+    # scrollbar() clamps zijn eigen argumenten, maar dat beschermt alleen de
+    # duimpositie. Zonder deze clamp scrollt de lijst zelf voorbij het einde
+    # en blijft er lege ruimte over onder in het scherm.
+    scroll = max(0, min(scroll, max(0, len(rijen) - ZICHTBAAR)))
+    zichtbaar = rijen[scroll:scroll + ZICHTBAAR]
+    for n in range(len(zichtbaar)):
+        y = LIJST_Y + n * RIJ_PITCH
+        rij = zichtbaar[n]
+        if rij[L_SOORT] == "gat":
+            gatregel(y, rij)
+        else:
+            lesregel(y, rij, geselecteerd=(scroll + n == selectie))
+
+    rest = len(rijen) - scroll - ZICHTBAAR
+    if rest > 0:
+        tekst(8, 181, "v %d lessen meer" % rest, GEDEMPT)
+    scrollbar(scroll, ZICHTBAAR, len(rijen))
+    if vandaag:
+        voetbalk("^v kies  ENTER open  <> dag", "2 cijf")
+    else:
+        voetbalk("<> dag  ENTER open  CLR vandaag")

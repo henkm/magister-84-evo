@@ -149,3 +149,42 @@ def test_teacher_name_never_crosses_the_right_edge(tekeningen):
     for c in teksten(tekeningen):
         x, s = c[1], c[3]
         assert x + M.text_width(s) <= M.RIGHT, c
+
+def test_today_gets_the_vandaag_header(tekeningen):
+    M.toon_dag(0, 0, 0)
+    assert ("draw_text", 6, 6, "VANDAAG") in teksten(tekeningen)
+
+def test_other_days_get_the_rooster_header(tekeningen):
+    M.toon_dag(1, 0, 0)
+    assert ("draw_text", 6, 6, "ROOSTER") in teksten(tekeningen)
+
+def test_day_screen_places_rows_on_the_design_pitch(tekeningen):
+    # Rij 1 van de fixture is een tussenuur en tekent geen band, dus de
+    # banden staan op 42, 98 en 126 - niet op 42, 70, 98.
+    M.toon_dag(0, 0, 0)
+    banden = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 26]
+    assert [c[2] for c in banden][:3] == [42, 98, 126]
+    assert ("draw_text", 80, 70, "tussenuur 09:45-10:30") in teksten(tekeningen)
+
+def test_day_screen_shows_a_more_indicator(tekeningen):
+    M.toon_dag(0, 0, 0)
+    labels = [c[3] for c in teksten(tekeningen)]
+    assert any(s.startswith("v ") and "meer" in s for s in labels)
+
+def test_empty_day_shows_the_notice_block(tekeningen):
+    M.toon_dag(2, 0, 0)
+    assert ("fill_rect", 24, 96, 271, 40) in vlakken(tekeningen)
+    t = [c[3] for c in teksten(tekeningen)]
+    assert "geen lessen op deze dag" in t
+
+def test_empty_day_uses_no_orange(tekeningen):
+    M.toon_dag(2, 0, 0)
+    assert ("set_color",) + M.ORANJE not in [c for c in tekeningen if c[0] == "set_color"]
+
+def test_scroll_past_the_end_of_the_list_is_clamped(tekeningen):
+    # Dag 0 heeft 6 rijen; met ZICHTBAAR=5 is scroll=1 de hoogst geldige
+    # waarde. Een hogere scroll mag de lijst niet in lege ruimte laten
+    # doorschuiven (minder rijen dan er zichtbaar zouden moeten zijn).
+    M.toon_dag(0, 0, 5)
+    banden = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 26]
+    assert [c[2] for c in banden] == [70, 98, 126, 154]
