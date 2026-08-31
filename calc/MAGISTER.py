@@ -116,3 +116,54 @@ def dag_index(datum):
         if DAGEN[i][0] == datum:
             return i
     return 0
+
+
+# --- tekenlaag: het vaste raster ---
+
+def kleur(rgb):
+    D.set_color(rgb[0], rgb[1], rgb[2])
+
+
+def vlak(x, y, w, h, rgb):
+    kleur(rgb)
+    D.fill_rect(x, y, w, h)
+
+
+def tekst(x, y, s, rgb):
+    kleur(rgb)
+    D.draw_text(x, y, s)
+
+
+def kop(titel, rechts=""):
+    vlak(0, 0, 319, 22, BLAUW)
+    tekst(6, 6, titel, WIT)
+    if rechts:
+        tekst(right_x(rechts), 6, rechts, WIT)
+
+
+def contextbalk(links, rechts="", verouderd=False):
+    vlak(0, 22, 319, 17, WIT)
+    if links:
+        tekst(6, 25, links, BLAUW)
+    if verouderd:
+        vlak(169, 26, 6, 6, ORANJE)
+    if rechts:
+        x = 181 if verouderd else right_x(rechts)
+        tekst(x, 25, rechts, GEDEMPT)
+    vlak(0, 39, 319, 1, AZUUR)
+
+
+def voetbalk(links, rechts=""):
+    vlak(0, 192, 319, 17, BLAUW)
+    tekst(6, 196, links, WIT)
+    if rechts:
+        tekst(257, 196, rechts, WIT)
+
+
+def scrollbar(eerste, zichtbaar, totaal):
+    if totaal <= zichtbaar:
+        return
+    vlak(311, 42, 4, 138, BAND)
+    hoogte = max(8, 138 * zichtbaar // totaal)
+    top = 42 + (138 - hoogte) * eerste // max(1, totaal - zichtbaar)
+    vlak(311, top, 4, hoogte, AZUUR)
