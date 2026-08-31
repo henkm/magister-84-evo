@@ -40,6 +40,9 @@ def right_x(s):
 
 
 def truncate(s, px):
+    # If budget cannot hold even one character, return empty string
+    if px < ADVANCE:
+        return ""
     if fits(s, px):
         return s
     ruimte = px - ADVANCE          # één teken voor de punt
@@ -57,6 +60,10 @@ def truncate(s, px):
 
 
 def wrap(s, px):
+    # If budget cannot hold even one character, return empty list
+    if px < ADVANCE:
+        return []
+
     regels, huidig = [], ""
     for w in s.split(" "):
         kandidaat = w if not huidig else huidig + " " + w
@@ -65,7 +72,22 @@ def wrap(s, px):
         else:
             if huidig:
                 regels.append(huidig)
-            huidig = w
+            # Hard-break words that don't fit on their own line
+            while w:
+                if fits(w, px):
+                    huidig = w
+                    break
+                else:
+                    # Fill a line with as many characters as fit
+                    chars_per_line = px // ADVANCE
+                    regel = w[:chars_per_line]
+                    regels.append(regel)
+                    w = w[chars_per_line:]
+            else:
+                # If w became empty after the loop (which shouldn't happen with while w),
+                # reset huidig
+                if not w:
+                    huidig = ""
     if huidig:
         regels.append(huidig)
     return regels
