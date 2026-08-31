@@ -35,3 +35,25 @@ def test_chunk_end_never_splits_an_escape_pair():
 def test_parse_packet_reads_type_and_data():
     typ, data = k.parse_packet(k.encode_packet(3, "Y", b"hoi"))
     assert (typ, data) == ("Y", b"hoi")
+
+def test_chunk_end_guarantees_forward_progress():
+    # If limit is too small for the escape unit at start, consume it anyway
+    assert k.chunk_end(bytes([35, 64]), 0, 1) == 2
+
+def test_encode_packet_S_returns_send_init():
+    # The "S" type is a short-circuit that returns SEND_INIT unchanged
+    assert k.encode_packet(0, "S") == k.SEND_INIT
+
+def test_parse_packet_on_long_packet():
+    # Long packets use the extended format (p[1] == 32)
+    p = k.encode_packet(1, "F", b"hallo")
+    typ, data = k.parse_packet(p)
+    assert (typ, data) == ("F", b"hallo")
+
+def test_parse_packet_raises_on_missing_start_byte():
+    # Packet with no SOH should raise ValueError
+    try:
+        k.parse_packet(b"no start byte here")
+        assert False, "Should have raised ValueError"
+    except ValueError as e:
+        assert "geen startbyte" in str(e)

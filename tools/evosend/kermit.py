@@ -41,6 +41,16 @@ def escape(data):
 
 
 def chunk_end(buf, start, limit):
+    """Return the position where a chunk should end without splitting escape pairs.
+
+    Deliberately diverges from evo-send.min.js's u() to guarantee forward progress:
+    the reference commits to an escape unit once the pre-check passes and may overshoot
+    the limit by up to two bytes, while this version defers a unit that would not fit.
+    Safe because Kermit long packets are self-describing (they carry their own declared
+    length), so chunk boundaries are free to vary.
+
+    Invariant: returns at least start + (one full escape unit), unless buf is exhausted.
+    """
     n, end = start, len(buf)
     while n < end:
         b = buf[n]
@@ -57,6 +67,10 @@ def chunk_end(buf, start, limit):
             next_n = n + 1
 
         if next_n - start > limit:
+            # Escape unit doesn't fit, but we must advance to guarantee forward progress
+            if n == start:
+                # Consume the unit anyway so downstream loops don't spin forever
+                n = min(next_n, end)
             break
         n = next_n
 
