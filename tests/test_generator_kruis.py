@@ -65,11 +65,12 @@ def test_precies_een_dag_heet_vandaag(app):
 
 
 def test_alle_schermen_voldoen_aan_de_layoutregels(app, tekeningen):
-    """Alle schermen, met alle echte data, tegen de drie regels van het raster.
+    """Alle schermen, met alle echte data, tegen de vier regels van het raster.
 
     layoutregels is dezelfde module die de rekenmachinekant gebruikt: niets
-    buiten het scherm, geen twee teksten over elkaar, en geen tekst in dezelfde
-    kleur als het vlak eronder. Faalt dit, dan is er data waarmee de app kapot
+    buiten het scherm, geen twee teksten over elkaar, geen tekst in dezelfde
+    kleur als het vlak eronder, en geen tekst die half over de rand van het
+    vlak eronder valt. Faalt dit, dan is er data waarmee de app kapot
     tekent -- versoepel de regels dan niet, maar kort de tekst in de generator
     of in de app af.
     """
@@ -79,6 +80,7 @@ def test_alle_schermen_voldoen_aan_de_layoutregels(app, tekeningen):
         layoutregels.binnen_scherm(tekeningen, app)
         layoutregels.geen_tekstoverlap(tekeningen, app)
         layoutregels.tekst_op_andere_kleur(tekeningen, app)
+        layoutregels.binnen_zijn_blok(tekeningen, app)
         tekeningen.clear()
 
     for i in range(len(app.DAGEN)):

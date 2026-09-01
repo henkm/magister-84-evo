@@ -102,6 +102,10 @@ def test_tekst_zet_het_blok_op_de_gevraagde_bovenkant(tekeningen):
 def test_de_kop_valt_binnen_zijn_eigen_band(tekeningen):
     M.kop("VANDAAG", "di 01-09")
     assert ("fill_rect", 0, 0, 319, 22) in tekeningen
+    # De rechteritem staat rechts uitgelijnd; die assertie ging verloren toen
+    # test_kop_matches_the_design_grid werd vervangen.
+    assert ("draw_text", 6, 21, "VANDAAG") in tekeningen
+    assert ("draw_text", M.right_x("di 01-09"), 21, "di 01-09") in tekeningen
     for c in tekeningen:
         if c[0] == "draw_text":
             top = c[2] - M.TEKST_ANKER
@@ -122,6 +126,10 @@ def test_de_contextbalk_valt_binnen_zijn_eigen_band(tekeningen):
 def test_de_voetbalk_valt_binnen_het_scherm(tekeningen):
     M.voetbalk("^v kies  ENTER open", "2 cijf")
     assert ("fill_rect", 0, 192, 319, 17) in tekeningen
+    # De twee kolommen van de voetbalk: links op x=6, rechts op de vaste
+    # x=257. Ook die assertie ging verloren met test_voetbalk_sits_at_192.
+    assert ("draw_text", 6, 211, "^v kies  ENTER open") in tekeningen
+    assert ("draw_text", 257, 211, "2 cijf") in tekeningen
     for c in tekeningen:
         if c[0] == "draw_text":
             top = c[2] - M.TEKST_ANKER
@@ -132,8 +140,31 @@ def test_de_voetbalk_valt_binnen_het_scherm(tekeningen):
 def test_het_mededelingsblok_zet_twee_regels_op_zestien_pixels(tekeningen):
     M.mededeling("geen lessen op deze dag", "volgende lesdag: wo 02-09")
     tops = [c[2] - M.TEKST_ANKER for c in tekeningen if c[0] == "draw_text"]
-    assert tops == [102, 118]
+    assert tops == [100, 116]
     assert tops[1] - tops[0] == M.LINE
+
+
+def test_het_mededelingsblok_staat_verticaal_gecentreerd_in_zijn_kaart(tekeningen):
+    # Het enige blok in de app waarvan de tekst niet in zijn kaart gecentreerd
+    # stond: 40 px kaart om 32 px tekst, verdeeld als 6 boven en 2 onder.
+    M.mededeling("geen lessen op deze dag", "volgende lesdag: wo 02-09")
+    kaart = [c for c in tekeningen if c[0] == "fill_rect" and c[4] == 40][0]
+    tops = [c[2] - M.TEKST_ANKER for c in tekeningen if c[0] == "draw_text"]
+    boven = tops[0] - kaart[2]
+    onder = (kaart[2] + kaart[4]) - (tops[-1] + M.TEKST_H)
+    assert boven == onder, "boven %d px, onder %d px" % (boven, onder)
+
+
+def test_het_mededelingsblok_kapt_beide_regels_af_op_zijn_binnenmaat(tekeningen):
+    # Geen van beide regels had een budget; de kaart is 271 px breed en de
+    # tekst begint op x=40, dus alles daarboven liep de kaart af.
+    M.mededeling("w" * 40, "x" * 40)
+    kaart = [c for c in tekeningen if c[0] == "fill_rect" and c[4] == 40][0]
+    rechterrand = kaart[1] + kaart[3]
+    regels = [c for c in tekeningen if c[0] == "draw_text"]
+    assert len(regels) == 2
+    for c in regels:
+        assert c[1] + M.text_width(c[3]) <= rechterrand, c
 
 
 def test_de_scrollbaan_ligt_naast_alles_en_binnen_het_scherm(tekeningen):
@@ -146,7 +177,7 @@ def test_de_scrollbaan_ligt_naast_alles_en_binnen_het_scherm(tekeningen):
             assert c[2] + c[4] <= 192
 
 
-def test_het_vaste_frame_voldoet_aan_de_drie_regels(tekeningen):
+def test_het_vaste_frame_voldoet_aan_de_vier_regels(tekeningen):
     M.vlak(0, 0, 319, 209, M.PAGINA)
     M.kop("VANDAAG", "di 01-09")
     M.contextbalk("6 lessen", "gesynct 07:41")
@@ -155,6 +186,7 @@ def test_het_vaste_frame_voldoet_aan_de_drie_regels(tekeningen):
     layoutregels.binnen_scherm(tekeningen, M)
     layoutregels.geen_tekstoverlap(tekeningen, M)
     layoutregels.tekst_op_andere_kleur(tekeningen, M)
+    layoutregels.binnen_zijn_blok(tekeningen, M)
 
 
 def test_de_regels_vangen_de_fouten_waarvoor_ze_bedoeld_zijn(tekeningen):
@@ -183,3 +215,18 @@ def test_de_regels_vangen_de_fouten_waarvoor_ze_bedoeld_zijn(tekeningen):
         raise AssertionError("tekst_op_andere_kleur liet wit op wit door")
     except AssertionError as e:
         assert "kleur" in str(e)
+
+    # tekst die half over de rand van zijn eigen blokje valt: de derde regel
+    # ziet hier niets (het paginavlak eronder omsluit de tekst wel), de
+    # vierde wel.
+    tekeningen.clear()
+    M.vlak(0, 0, 319, 209, M.PAGINA)
+    M.vlak(60, 44, 36, 20, M.BLAUW)
+    M.tekst(53, 46, "10-11", M.WIT)
+    layoutregels.tekst_op_andere_kleur(tekeningen, M)
+    fout = None
+    try:
+        layoutregels.binnen_zijn_blok(tekeningen, M)
+    except AssertionError as e:
+        fout = str(e)
+    assert fout and "half over de rand" in fout, fout

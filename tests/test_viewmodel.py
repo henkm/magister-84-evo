@@ -26,4 +26,7 @@ def test_subject_names_fit_the_lesson_row():
     for _, _, _, rijen in M.DAGEN:
         for r in rijen:
             if r[M.L_SOORT] == "les":
-                assert M.fits(r[M.L_VAK], 313 - 96)
+                # Afgeleid van de kolom zelf, niet van een getal: 96 stond er
+                # nog uit de ronde voordat de tekstkolom 100 en daarna 118
+                # werd, en toetste dus al twee rondes een te ruim budget.
+                assert M.fits(r[M.L_VAK], M.RIGHT - M.TEKST_X)

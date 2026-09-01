@@ -69,32 +69,66 @@ def _les(**kw):
 
 RIJ = _les()
 
-def test_lesson_row_uses_the_36px_badge_and_x96_text_column(tekeningen):
+def test_de_lesregel_gebruikt_de_54px_badge_en_tekstkolom_118(tekeningen):
     M.lesregel(42, _les())
     v = vlakken(tekeningen)
     assert ("fill_rect", 0, 42, 319, 36) in v          # band
     assert ("fill_rect", 0, 42, 4, 36) in v            # accentbalk
-    assert ("fill_rect", 60, 44, 36, 20) in v          # badge, 36 breed
+    assert ("fill_rect", 60, 44, 54, 20) in v          # badge, 54 breed
     t = teksten(tekeningen)
     assert ("draw_text", 6, 62, "10:30") in t
     assert ("draw_text", 6, 78, "12:00") in t
-    assert ("draw_text", 100, 62, "natuurkunde") in t
-    assert ("draw_text", 100, 78, "Bos (BOS)") in t
+    assert ("draw_text", 118, 62, "natuurkunde") in t
+    assert ("draw_text", 118, 78, "Bos (BOS)") in t
 
-def test_double_period_badge_text_is_centred_in_36px(tekeningen):
+def test_de_badge_is_gemaakt_op_het_breedste_label_dat_de_generator_geeft():
+    # rooster.js zet er "${van}-${tot}" in, dus "10-11" (5 tekens, 50 px) is
+    # een echt uurlabel. De badge moet dat kunnen dragen, niet alleen "3-4".
+    assert M.text_width("10-11") <= M.BADGE_W
+    # en de tekstkolommen beginnen achter de badge, met 4 px lucht
+    assert M.TEKST_X == M.BADGE_X + M.BADGE_W + 4
+    assert M.DETAIL_TEKST_X == M.DETAIL_BADGE_X + M.BADGE_W + 4
+
+def test_de_badgetekst_staat_gecentreerd_in_54px(tekeningen):
+    M.lesregel(42, _les(uur="10-11"))
+    assert ("draw_text", 60 + (54 - 50) // 2, 64, "10-11") in teksten(tekeningen)
+    tekeningen.clear()
     M.lesregel(42, _les(uur="3-4"))
-    assert ("draw_text", 60 + (36 - 30) // 2, 64, "3-4") in teksten(tekeningen)
+    assert ("draw_text", 60 + (54 - 30) // 2, 64, "3-4") in teksten(tekeningen)
+
+def test_de_badge_kapt_een_label_af_dat_niet_in_zijn_binnenmaat_past(tekeningen):
+    # Een vak met een vaste maat dat zijn eigen inhoud niet begrenst, begrenst
+    # niets: het gecentreerde label moet binnen de badge blijven, wat de data
+    # ook aanlevert.
+    M.lesregel(42, _les(uur="10-11-12"))
+    label = [c for c in teksten(tekeningen) if c[2] == 64][0]
+    assert label[1] >= M.BADGE_X, label
+    assert label[1] + M.text_width(label[3]) <= M.BADGE_X + M.BADGE_W, label
+
+def test_de_badge_van_het_lesdetail_kapt_datzelfde_label_af(tekeningen):
+    origineel = M.DAGEN
+    rij = ("les", "10:30", "12:00", "10-11-12", "natuurkunde", "206",
+           "Bos (BOS)", "normaal", "", "", "")
+    M.DAGEN = _stel_dagen_in(rij)
+    try:
+        M.toon_lesdetail(0, 0)
+    finally:
+        M.DAGEN = origineel
+    label = [c for c in teksten(tekeningen) if c[2] == 44 and c[1] < 60][0]
+    assert label[1] >= M.DETAIL_BADGE_X, label
+    assert label[1] + M.text_width(label[3]) <= M.DETAIL_BADGE_X + M.BADGE_W, \
+        label
 
 def test_single_digit_badge_keeps_the_same_column(tekeningen):
     M.lesregel(42, _les(uur="1"))
-    assert ("draw_text", 60 + (36 - 10) // 2, 64, "1") in teksten(tekeningen)
+    assert ("draw_text", 60 + (54 - 10) // 2, 64, "1") in teksten(tekeningen)
 
 def test_cancelled_lesson_is_white_grey_and_struck_through(tekeningen):
     M.lesregel(42, _les(status="vervallen", chip="VERVALT"))
     v = vlakken(tekeningen)
     assert ("fill_rect", 0, 42, 319, 36) in v
     doorhaling = [c for c in v if c[4] == 1 and c[2] == 52]
-    assert doorhaling and doorhaling[0][1] == 100
+    assert doorhaling and doorhaling[0][1] == 118
 
 def test_changed_lesson_has_an_orange_accent_bar(tekeningen):
     M.lesregel(42, _les(status="gewijzigd", chip="GEWIJZIGD"))
@@ -134,6 +168,7 @@ def test_de_twee_tekstregels_van_een_lesregel_overlappen_niet(tekeningen):
     layoutregels.geen_tekstoverlap(tekeningen, M)
     layoutregels.binnen_scherm(tekeningen, M)
     layoutregels.tekst_op_andere_kleur(tekeningen, M)
+    layoutregels.binnen_zijn_blok(tekeningen, M)
 
 def test_elke_chip_omsluit_zijn_eigen_tekst(tekeningen):
     for chip in ("HW", "TOETS", "GEWIJZIGD", "VERVALT"):
@@ -144,13 +179,59 @@ def test_elke_chip_omsluit_zijn_eigen_tekst(tekeningen):
         M.lesregel(42, tuple(rij))
         layoutregels.tekst_op_andere_kleur(tekeningen, M)
         layoutregels.binnen_scherm(tekeningen, M)
+        layoutregels.binnen_zijn_blok(tekeningen, M)
 
 def test_de_badge_omsluit_ook_een_dubbeluur(tekeningen):
+    # "10-11" en niet "3-4": rooster.js zet er "${van}-${tot}" in, dus dit is
+    # het breedste label dat de generator kan maken. "3-4" is juist de enige
+    # dubbeluurwaarde die ook in een te smalle badge nog paste.
     M.vlak(0, 0, 319, 209, M.PAGINA)
     rij = list(RIJ)
-    rij[M.L_UUR] = "3-4"
+    rij[M.L_UUR] = "10-11"
     M.lesregel(42, tuple(rij))
     layoutregels.tekst_op_andere_kleur(tekeningen, M)
+    layoutregels.binnen_zijn_blok(tekeningen, M)
+
+def test_de_vierde_regel_vangt_de_badge_die_zijn_label_liet_ontsnappen(tekeningen):
+    # tekst_op_andere_kleur pakt het laatste vlak dat het letterblok volledig
+    # bedekt. Voor een label dat naast zijn badge valt is dat de band van de
+    # rij en niet de badge die het miste, dus een label half op zijn chip en
+    # half ernaast komt daar ongemerkt doorheen. binnen_zijn_blok kijkt naar
+    # gedeeltelijke overlap en ziet het wel.
+    oud_w, oud_x = M.BADGE_W, M.TEKST_X
+    M.BADGE_W, M.TEKST_X = 36, 100          # de geometrie van voor deze fix
+    try:
+        M.vlak(0, 0, 319, 209, M.PAGINA)
+        M.lesregel(42, _les(uur="10-11"))
+    finally:
+        M.BADGE_W, M.TEKST_X = oud_w, oud_x
+    fout = None
+    try:
+        layoutregels.binnen_zijn_blok(tekeningen, M)
+    except AssertionError as e:
+        fout = str(e)
+    assert fout and "10-11" in fout, fout
+
+def test_de_vierde_regel_ziet_wat_de_eerste_drie_missen(tekeningen):
+    # "9-10" is het geval dat de reviewer aanwees: 2 px buiten een badge van
+    # 36 px. Alle drie de oude regels vinden hier niets - de witte tekst staat
+    # keurig op de bleke band en is daar simpelweg onzichtbaar.
+    oud_w, oud_x = M.BADGE_W, M.TEKST_X
+    M.BADGE_W, M.TEKST_X = 36, 100
+    try:
+        M.vlak(0, 0, 319, 209, M.PAGINA)
+        M.lesregel(42, _les(uur="9-10"))
+    finally:
+        M.BADGE_W, M.TEKST_X = oud_w, oud_x
+    layoutregels.binnen_scherm(tekeningen, M)
+    layoutregels.geen_tekstoverlap(tekeningen, M)
+    layoutregels.tekst_op_andere_kleur(tekeningen, M)
+    fout = None
+    try:
+        layoutregels.binnen_zijn_blok(tekeningen, M)
+    except AssertionError as e:
+        fout = str(e)
+    assert fout and "9-10" in fout, fout
 
 def test_room_text_never_overlaps_the_chip(tekeningen):
     for chip in M.CHIP_KLEUR:
@@ -179,7 +260,8 @@ def test_cancelled_strikethrough_stays_within_the_screen(tekeningen):
     assert x + w <= M.RIGHT
 
 def test_subject_gets_the_full_width_when_there_is_no_room(tekeningen):
-    onderwerp = "abcdefghijklmnopqrst"
+    # 19 tekens: het volle budget van de tekstkolom (313 - 118 = 195 px)
+    onderwerp = "abcdefghijklmnopqrs"
     M.lesregel(42, _les(vak=onderwerp, lokaal=""))
     assert onderwerp in [c[3] for c in teksten(tekeningen)]
 
@@ -282,12 +364,12 @@ def test_de_meer_indicator_van_het_roosterscherm_is_vervangen_door_de_scrollbaan
 
 # --- lesdetail, vakkenlijst, cijfers ---
 
-def test_detail_uses_the_wide_badge_and_x54_text(tekeningen):
+def test_detail_uses_the_wide_badge_and_x68_text(tekeningen):
     M.toon_lesdetail(0, 2)
     v = vlakken(tekeningen)
     assert ("fill_rect", 0, 22, 319, 54) in v
-    assert ("fill_rect", 10, 24, 36, 20) in v
-    assert ("draw_text", 54, 44, "natuurkunde") in teksten(tekeningen)
+    assert ("fill_rect", 10, 24, 54, 20) in v
+    assert ("draw_text", 68, 44, "natuurkunde") in teksten(tekeningen)
 
 def test_detail_wraps_homework_at_30_characters(tekeningen):
     M.toon_lesdetail(0, 2)
@@ -300,7 +382,7 @@ def test_detail_without_homework_says_so(tekeningen):
     M.toon_lesdetail(1, 0)
     assert "geen huiswerk of toets" in [c[3] for c in teksten(tekeningen)]
 
-def test_het_lesdetail_houdt_zich_aan_de_drie_regels(tekeningen):
+def test_het_lesdetail_houdt_zich_aan_de_vier_regels(tekeningen):
     for i in range(len(M.DAGEN)):
         rijen = M.DAGEN[i][3]
         for j in range(len(rijen)):
@@ -312,6 +394,7 @@ def test_het_lesdetail_houdt_zich_aan_de_drie_regels(tekeningen):
                 layoutregels.binnen_scherm(tekeningen, M)
                 layoutregels.geen_tekstoverlap(tekeningen, M)
                 layoutregels.tekst_op_andere_kleur(tekeningen, M)
+                layoutregels.binnen_zijn_blok(tekeningen, M)
 
 def test_de_omschrijving_staat_altijd_op_dezelfde_plek(tekeningen):
     # kort huiswerk en lang huiswerk mogen de omschrijving niet verplaatsen
@@ -382,6 +465,37 @@ def test_een_tien_past_in_het_cijferblok(tekeningen):
     assert x + breedte <= M.CIJFER_X + M.CIJFER_W
     assert M.CIJFER_X + M.CIJFER_W <= M.SCROLL_X
 
+def test_het_cijferblok_kapt_een_te_lange_tekstwaardering_af(tekeningen):
+    # "vr" past, maar een tekstwaardering van zes tekens is 60 px in een blok
+    # van 44 en tekende tot x=321 - voorbij de schermrand. cijfer was de enige
+    # tekst op deze rij die niet door truncate ging; oms en meta wel.
+    origineel = M.VAKKEN
+    M.VAKKEN = [("wiskunde D", "7,0", [
+        ("Inhaalmoment", "vrijst", "01-06 - P1 - vrijstelling", "tekst"),
+    ])]
+    try:
+        M.toon_cijfers(0, 0)
+    finally:
+        M.VAKKEN = origineel
+    blok = [c for c in teksten(tekeningen) if c[2] == 70][0]
+    assert blok[1] >= M.CIJFER_X, blok
+    assert blok[1] + M.text_width(blok[3]) <= M.CIJFER_X + M.CIJFER_W, blok
+
+def test_de_lege_vakkenlijst_houdt_zijn_mededeling_binnen_de_kaart(tekeningen):
+    # "nog geen cijfers in " + PERIODE groeit mee met het aantal perioden en
+    # was aan geen enkel budget gebonden.
+    origineel_v, origineel_p = M.VAKKEN, M.PERIODE
+    M.VAKKEN, M.PERIODE = [], "P1 · P2 · P3 · P4"
+    try:
+        M.toon_vakken(0, 0)
+    finally:
+        M.VAKKEN, M.PERIODE = origineel_v, origineel_p
+    kaart = [c for c in vlakken(tekeningen) if c[4] == 40][0]
+    rechterrand = kaart[1] + kaart[3]
+    for c in teksten(tekeningen):
+        if c[2] - M.TEKST_ANKER >= 96 and c[1] >= kaart[1]:
+            assert c[1] + M.text_width(c[3]) <= rechterrand, c
+
 # --- randgevallen: niets buiten het scherm, niets over de buur ---
 #
 # Dit project heeft drie keer eerder code gemerged die buiten het 319x209
@@ -418,16 +532,16 @@ def test_detail_stays_within_the_screen_and_columns_do_not_collide(tekeningen):
     layoutregels.binnen_scherm(tekeningen, M)
 
     # vaknaam mag niet onder/over de tijd lopen (beide op top=26); de
-    # badge-tekst deelt diezelfde regel maar staat altijd links van x=54.
+    # badge-tekst deelt diezelfde regel maar staat altijd links van x=68.
     regel26 = [(c[1], c[3]) for c in teksten(tekeningen)
-               if c[2] - M.TEKST_ANKER == 26 and c[1] >= 54]
+               if c[2] - M.TEKST_ANKER == 26 and c[1] >= 68]
     assert len(regel26) == 2
     (x1, s1), (x2, s2) = sorted(regel26)
     assert x1 + M.text_width(s1) <= x2, "vaknaam botst met de tijd"
 
     # docent mag niet onder de chip lopen
     docent = [c for c in teksten(tekeningen)
-              if c[2] - M.TEKST_ANKER == 58 and c[1] == 54][0]
+              if c[2] - M.TEKST_ANKER == 58 and c[1] == 68][0]
     chip_rect = [c for c in vlakken(tekeningen)
                  if c[2] == 56 and c[4] == M.CHIP_H][0]
     assert docent[1] + M.text_width(docent[3]) <= chip_rect[1], \
@@ -639,30 +753,38 @@ def test_grade_screen_scroll_past_the_end_is_clamped(tekeningen):
     assert [c[2] for c in te_ver] == [42, 80, 118, 156]
     assert [c[2] for c in negatief] == [42, 80, 118, 156]
 
-def test_geen_enkel_scherm_overtreedt_de_drie_regels(tekeningen):
+def test_geen_enkel_scherm_overtreedt_de_vier_regels(tekeningen):
+    """Alle vijf de schermen, niet drie: de naam beloofde een veegtest over
+    het hele scherm, maar toon_lesdetail en toon_geen_data zaten er niet in."""
+    def controleer():
+        layoutregels.binnen_scherm(tekeningen, M)
+        layoutregels.geen_tekstoverlap(tekeningen, M)
+        layoutregels.tekst_op_andere_kleur(tekeningen, M)
+        layoutregels.binnen_zijn_blok(tekeningen, M)
+        tekeningen.clear()
+
     for i in range(len(M.DAGEN)):
         rijen = M.DAGEN[i][3]
         for scroll in range(0, max(1, len(rijen))):
             for selectie in range(0, max(1, len(rijen))):
-                tekeningen.clear()
                 M.toon_dag(i, selectie, scroll)
-                layoutregels.binnen_scherm(tekeningen, M)
-                layoutregels.geen_tekstoverlap(tekeningen, M)
-                layoutregels.tekst_op_andere_kleur(tekeningen, M)
+                controleer()
+        for j in range(len(rijen)):
+            if rijen[j][M.L_SOORT] != "les":
+                continue
+            for scroll in range(0, 8):
+                M.toon_lesdetail(i, j, scroll)
+                controleer()
     for scroll in range(0, max(1, len(M.VAKKEN))):
         for selectie in range(0, max(1, len(M.VAKKEN))):
-            tekeningen.clear()
             M.toon_vakken(selectie, scroll)
-            layoutregels.binnen_scherm(tekeningen, M)
-            layoutregels.geen_tekstoverlap(tekeningen, M)
-            layoutregels.tekst_op_andere_kleur(tekeningen, M)
+            controleer()
     for v in range(len(M.VAKKEN)):
         for scroll in range(0, max(1, len(M.VAKKEN[v][2]))):
-            tekeningen.clear()
             M.toon_cijfers(v, scroll)
-            layoutregels.binnen_scherm(tekeningen, M)
-            layoutregels.geen_tekstoverlap(tekeningen, M)
-            layoutregels.tekst_op_andere_kleur(tekeningen, M)
+            controleer()
+    M.toon_geen_data()
+    controleer()
 
 # --- geen-data-scherm en hoofdlus ---
 
@@ -768,7 +890,7 @@ def test_main_enter_on_a_lesson_opens_detail_and_clear_returns_to_dag(tekeningen
         M.main()
     finally:
         M.wait_key = origineel
-    assert ("draw_text", 54, 44, "natuurkunde") in teksten(tekeningen)
+    assert ("draw_text", 68, 44, "natuurkunde") in teksten(tekeningen)
 
 def test_main_selection_never_lands_on_a_gap_row(tekeningen):
     # rij-index 1 op dag 0 is een tussenuur ("gat"). gatregel() tekent geen
@@ -934,7 +1056,7 @@ def test_main_detail_arrows_walk_between_lessons(tekeningen):
     beeldjes, _ = _beeldjes(tekeningen)
     vakken_per_beeld = []
     for b in beeldjes:
-        n = [c[3] for c in b if c[0] == "draw_text" and c[1] == 54 and c[2] == 44]
+        n = [c[3] for c in b if c[0] == "draw_text" and c[1] == 68 and c[2] == 44]
         vakken_per_beeld.append(n[0] if n else None)
     # beeld 0 en het laatste zijn het dagscherm; daartussen de lesdetails
     assert vakken_per_beeld == [

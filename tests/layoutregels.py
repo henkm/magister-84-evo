@@ -1,9 +1,13 @@
-"""Drie regels waar elk scherm aan moet voldoen.
+"""Vier regels waar elk scherm aan moet voldoen.
 
-Ze bestaan omdat de suite twee fouten liet passeren die op het apparaat meteen
+Ze bestaan omdat de suite fouten liet passeren die op het apparaat meteen
 zichtbaar waren: tekst die half buiten zijn balk viel, en tekstregels die
 elkaar overlapten. Een test die per oproep een pixelwaarde nakijkt vangt dat
 niet; een regel over het hele beeld wel.
+
+De vierde regel is er later bij gekomen omdat de derde een blinde vlek had:
+tekst die half naast zijn eigen chip valt, landt op de band eronder en komt
+daar ongemerkt doorheen.
 """
 
 
@@ -62,3 +66,28 @@ def tekst_op_andere_kleur(tekeningen, M):
         if onder == kleur:
             raise AssertionError(
                 "tekst %r heeft dezelfde kleur %r als het vlak eronder" % (s, onder))
+
+
+def binnen_zijn_blok(tekeningen, M):
+    """Een vlak omsluit een letterblok helemaal, of het raakt het niet.
+
+    tekst_op_andere_kleur pakt het laatste vlak dat het letterblok volledig
+    bedekt. Valt een label half naast de badge waar het in hoort, dan is dat
+    laatste vlak de band van de rij en niet de badge - en dan is er niets aan
+    de hand volgens die regel, terwijl witte tekst op een bleke band gewoon
+    onzichtbaar is. Deze regel kijkt daarom naar gedeeltelijke overlap: een
+    vak met een vaste maat moet zijn eigen inhoud omsluiten.
+
+    Alleen vlakken die vóór de tekst getekend zijn tellen mee; wat erna komt
+    ligt eroverheen en is een ander soort fout.
+    """
+    vlakken, teksten = _beeld(tekeningen, M)
+    for x, top, x2, bot, s, _, tot in teksten:
+        for vx, vy, vx2, vy2, _ in vlakken[:tot]:
+            raakt = vx < x2 and x < vx2 and vy < bot and top < vy2
+            omsluit = vx <= x and vy <= top and vx2 >= x2 and vy2 >= bot
+            if raakt and not omsluit:
+                raise AssertionError(
+                    "tekst %r valt half over de rand van het vlak eronder: "
+                    "tekst (%d,%d)-(%d,%d), vlak (%d,%d)-(%d,%d)"
+                    % (s, x, top, x2, bot, vx, vy, vx2, vy2))

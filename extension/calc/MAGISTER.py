@@ -192,9 +192,22 @@ def scrollbar(eerste, zichtbaar, totaal):
 
 TIJD_X = 6
 BADGE_X = 60
-BADGE_W = 36
+# 54 en niet 36: uurLabel in de generator maakt van een dubbeluur
+# "${van}-${tot}", dus "10-11" (5 tekens, 50 px) is een echt label. In een
+# badge van 36 px liep dat 7 px links en 7 px rechts naar buiten - links tot
+# over de begintijd heen, rechts alleen maar over de band, waar witte tekst
+# onzichtbaar is. De badge wordt daarom gemaakt op wat de data kan bevatten:
+# vijf tekens plus 4 px lucht.
+BADGE_W = 54
 BADGE_H = 20
-TEKST_X = 100
+# Binnenmaat van de badge: hiernaar wordt het label ingekort voordat het
+# gecentreerd wordt. Een vak met een vaste maat dat zijn eigen inhoud niet
+# begrenst, begrenst niets - dan schuift een te lang label er gewoon aan
+# weerszijden uit.
+BADGE_TEKST_W = BADGE_W - 4
+TEKST_X = BADGE_X + BADGE_W + 4         # 118
+DETAIL_BADGE_X = 10
+DETAIL_TEKST_X = DETAIL_BADGE_X + BADGE_W + 4   # 68
 CHIP_H = 20
 RIJ_H = 36
 
@@ -229,7 +242,7 @@ def lesregel(y, rij, geselecteerd=False):
     tekst(TIJD_X, y + 18, rij[L_EIND], GEDEMPT)
 
     vlak(BADGE_X, y + 2, BADGE_W, BADGE_H, badge)
-    uur = rij[L_UUR]
+    uur = truncate(rij[L_UUR], BADGE_TEKST_W)
     tekst(BADGE_X + (BADGE_W - text_width(uur)) // 2, y + 4, uur, WIT)
 
     chip = rij[L_CHIP]
@@ -291,6 +304,7 @@ LIJST_Y = 42
 ZICHTBAAR = 4
 CIJFER_X = 269
 CIJFER_W = 44
+CIJFER_TEKST_W = CIJFER_W - 4   # binnenmaat; "10,0" (40 px) past precies
 
 
 def is_onvoldoende(cijfer):
@@ -307,12 +321,27 @@ def is_onvoldoende(cijfer):
         return False
 
 
+MED_X = 24
+MED_Y = 96
+MED_W = 271
+MED_H = 40
+MED_TEKST_X = 40
+# Tot de rechterrand van de kaart. Geen van beide regels had een budget, en
+# "nog geen cijfers in " + PERIODE groeit mee met het aantal perioden.
+MED_TEKST_W = MED_X + MED_W - MED_TEKST_X
+# Verticaal gecentreerd: 40 px kaart om 32 px tekst is 4 boven en 4 onder.
+# Het stond op 102/118 - 6 boven en 2 onder - als enige blok in de app dat
+# zijn tekst niet in zijn eigen kaart centreerde.
+MED_TEKST_Y = MED_Y + (MED_H - 2 * TEKST_H) // 2        # 100
+
+
 def mededeling(regel1, regel2=""):
-    vlak(24, 96, 271, 40, BAND)
-    vlak(24, 96, 4, 40, AZUUR)
-    tekst(40, 102, regel1, DONKER)
+    vlak(MED_X, MED_Y, MED_W, MED_H, BAND)
+    vlak(MED_X, MED_Y, 4, MED_H, AZUUR)
+    tekst(MED_TEKST_X, MED_TEKST_Y, truncate(regel1, MED_TEKST_W), DONKER)
     if regel2:
-        tekst(40, 118, regel2, GEDEMPT)
+        tekst(MED_TEKST_X, MED_TEKST_Y + LINE,
+              truncate(regel2, MED_TEKST_W), GEDEMPT)
 
 
 def _volgende_lesdag(i):
@@ -376,8 +405,9 @@ def toon_lesdetail(dag_i, rij_i, scroll=0):
     _, accent, badge, voorgrond = _lesregel_kleuren(rij[L_STATUS])
     vlak(0, 22, 319, 54, BAND)
     vlak(0, 22, 4, 54, accent)
-    vlak(10, 24, BADGE_W, BADGE_H, badge)
-    tekst(10 + (BADGE_W - text_width(rij[L_UUR])) // 2, 26, rij[L_UUR], WIT)
+    vlak(DETAIL_BADGE_X, 24, BADGE_W, BADGE_H, badge)
+    uur = truncate(rij[L_UUR], BADGE_TEKST_W)
+    tekst(DETAIL_BADGE_X + (BADGE_W - text_width(uur)) // 2, 26, uur, WIT)
 
     chip = rij[L_CHIP]
     chip_b = chip_breedte(chip) if chip else 0
@@ -388,11 +418,13 @@ def toon_lesdetail(dag_i, rij_i, scroll=0):
     # nadat de tijd-positie bekend is, zodat de twee elkaar nooit raken.
     tijd = rij[L_BEGIN] + "-" + rij[L_EIND]
     tijd_x = right_x(tijd)
-    tekst(54, 26, truncate(rij[L_VAK], tijd_x - 8 - 54), voorgrond)
-    tekst(54, 42, truncate("lokaal " + rij[L_LOKAAL], RIGHT - 54), GEDEMPT)
+    kolom = DETAIL_TEKST_X
+    tekst(kolom, 26, truncate(rij[L_VAK], tijd_x - 8 - kolom), voorgrond)
+    tekst(kolom, 42, truncate("lokaal " + rij[L_LOKAAL], RIGHT - kolom),
+          GEDEMPT)
     # Idem voor de docent: die deelt zijn regel met de chip als die er is.
-    docent_breedte = (RIGHT - chip_b - 8 - 54) if chip else (RIGHT - 54)
-    tekst(54, 58, truncate(rij[L_DOCENT], docent_breedte), GEDEMPT)
+    docent_breedte = (RIGHT - chip_b - 8 - kolom) if chip else (RIGHT - kolom)
+    tekst(kolom, 58, truncate(rij[L_DOCENT], docent_breedte), GEDEMPT)
     tekst(tijd_x, 26, tijd, GEDEMPT)
     if chip:
         vlak(RIGHT - chip_b, 56, chip_b, CHIP_H, CHIP_KLEUR[chip])
@@ -507,7 +539,10 @@ def toon_cijfers(vak_i, scroll=0):
         tekst(14, y + 2, truncate(oms, 247), DONKER)
         tekst(14, y + 18, truncate(meta, 247), GEDEMPT)
         vlak(CIJFER_X, y + 8, CIJFER_W, 20, blokkleur)
-        tekst(CIJFER_X + (CIJFER_W - text_width(cijfer)) // 2, y + 10, cijfer, WIT)
+        # cijfer was de enige tekst op deze rij die niet werd ingekort; een
+        # tekstwaardering van zes tekens tekende tot x=321, voorbij de rand.
+        waarde = truncate(cijfer, CIJFER_TEKST_W)
+        tekst(CIJFER_X + (CIJFER_W - text_width(waarde)) // 2, y + 10, waarde, WIT)
 
     scrollbar(scroll, ZICHTBAAR, len(cijfers))
     voetbalk("^v scroll  CLEAR vakken")
