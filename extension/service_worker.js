@@ -15,7 +15,7 @@
 
 const PANEEL = 'panel.html';
 
-chrome.action.onClicked.addListener(async () => {
+async function openPaneel() {
   const url = chrome.runtime.getURL(PANEEL);
   const [bestaand] = await chrome.tabs.query({ url });
   if (bestaand) {
@@ -24,4 +24,13 @@ chrome.action.onClicked.addListener(async () => {
     return;
   }
   await chrome.tabs.create({ url });
+}
+
+chrome.action.onClicked.addListener(openPaneel);
+
+// Het menu-item in de Magister-sidebar (content.js) gaat langs dezelfde weg:
+// een tweede pad naar hetzelfde paneel zou een tweede plek zijn waar het fout
+// kan gaan.
+chrome.runtime.onMessage.addListener((bericht) => {
+  if (bericht && bericht.type === 'paneel-openen') openPaneel();
 });

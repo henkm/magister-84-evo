@@ -18,7 +18,37 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
-  "background": { "service_worker": "service_worker.js", "type": "module" },
-  "permissions": ["scripting", "tabs", "storage"],
-  "host_permissions": ["https://*.magister.net/*"]
+  "background": {
+    "service_worker": "service_worker.js",
+    "type": "module"
+  },
+  "permissions": [
+    "scripting",
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*.magister.net/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.magister.net/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/menu.js"
+      ],
+      "matches": [
+        "https://*.magister.net/*"
+      ]
+    }
+  ]
 }
