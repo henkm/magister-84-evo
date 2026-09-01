@@ -19,6 +19,11 @@ def _h(b):
     return bytes(b).hex()
 
 
+def _parse_rij(rauw):
+    typ, data = kermit.parse_packet(rauw)
+    return {"rauw": _h(rauw), "type": typ, "data": _h(data)}
+
+
 def bouw():
     pakketten = [
         (0, "S", b""),
@@ -43,6 +48,20 @@ def bouw():
         (b"", 0, 10),
         (b"abc", 0, 100),
     ]
+    parse_in = [
+        kermit.encode_packet(3, "Y", b""),             # kort, zonder data
+        kermit.encode_packet(1, "Y", b"ok"),           # kort, met data
+        kermit.encode_packet(2, "D", b"y" * 77),       # n = 80: nog net kort
+        kermit.encode_packet(4, "D", b"z" * 78),       # n = 81: lang, kop van 7
+        kermit.encode_packet(5, "D", b"w" * 200),      # ruim over de grens
+        kermit.encode_packet(6, "E", b"geen ruimte"),  # kort E met fouttekst
+        kermit.encode_packet(7, "E", b"fout: " + b"x" * 100),   # lang E
+        kermit.encode_packet(8, "E", b"schijf vol: \xe9\xe8"),  # niet-ASCII
+        # rommel voor de startbyte: de resten van een vorig antwoord
+        b"\x00\x00\x0d\x0a" + kermit.encode_packet(9, "Y", b"ok"),
+        b"\x00\x00\x0a" + kermit.encode_packet(10, "D", b"q" * 120),
+    ]
+
     namen = ["A", "Z", "A0", "MAGISTER", "MAGDATA", "TEST1234"]
     bronnen = [b"", b"print('hoi')\n", b"x" * 300, bytes(range(256))]
 
@@ -64,6 +83,7 @@ def bouw():
              "uit": kermit.chunk_end(b, s, l)}
             for b, s, l in chunk_in
         ],
+        "parse_packet": [_parse_rij(r) for r in parse_in],
         "cbor_int": [
             {"waarde": n, "uit": _h(payload.cbor(n))}
             for n in [0, 1, 23, 24, 255, 256, 65535, 65536, 16777215]

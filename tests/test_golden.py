@@ -17,10 +17,10 @@ def test_gouden_vectoren_zijn_vers():
 
 
 def test_vectoren_dekken_alle_onderdelen():
-    verwacht = {"checksum", "encode_packet", "escape", "chunk_end", "cbor_int",
-                "cbor_str", "name_to_uri", "name_to_tokbytes",
-                "build_container", "payload_checksum", "build_payload",
-                "transfer_url"}
+    verwacht = {"checksum", "encode_packet", "escape", "chunk_end",
+                "parse_packet", "cbor_int", "cbor_str", "name_to_uri",
+                "name_to_tokbytes", "build_container", "payload_checksum",
+                "build_payload", "transfer_url"}
     assert set(golden.bouw()) == verwacht
     for naam, rijen in golden.bouw().items():
         assert len(rijen) >= 4, naam

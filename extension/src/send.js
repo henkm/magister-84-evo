@@ -8,7 +8,10 @@ import { bouwPayload, transferUrl, valideerNaam } from './payload.js';
 export const CHUNK = 2000;
 
 const TEKST = new TextEncoder();
-const LEES = new TextDecoder();
+// latin1, niet UTF-8: tools/evosend/port.py leest de fouttekst van de
+// rekenmachine met .decode("latin1"), byte voor byte. Met de standaard
+// UTF-8-decoder wordt elke niet-ASCII byte een vervangingsteken.
+const LEES = new TextDecoder('latin1');
 
 async function verwachtAck(transport, timeoutMs = 8000) {
   const { type, data } = await transport.leesPakket(timeoutMs);

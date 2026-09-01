@@ -10,7 +10,7 @@ test('hex heen en weer', () => {
 test('de gouden vectoren zijn leesbaar en compleet', () => {
   const verwacht = ['build_container', 'build_payload', 'cbor_int', 'cbor_str',
     'checksum', 'chunk_end', 'encode_packet', 'escape', 'name_to_tokbytes',
-    'name_to_uri', 'payload_checksum', 'transfer_url'];
+    'name_to_uri', 'parse_packet', 'payload_checksum', 'transfer_url'];
   assert.deepEqual(Object.keys(GOUD).sort(), verwacht);
   for (const [naam, rijen] of Object.entries(GOUD)) {
     assert.ok(rijen.length >= 4, naam);

@@ -14,7 +14,9 @@ class NepTransport {
     this.gesloten = false;
   }
   async schrijf(bytes) {
-    this.geschreven.push(parsePacket(bytes));
+    // De rauwe bytes moeten mee: parsePacket gooit de volgnummerbyte weg,
+    // en juist die byte is wat het apparaat te zien krijgt.
+    this.geschreven.push({ ...parsePacket(bytes), rauw: bytes });
     this.laatsteRuwe = bytes;
   }
   async leesPakket() {
@@ -67,6 +69,21 @@ test('het volgnummer loopt om op 64 en blijft geldig', async () => {
   await stuurPython(t, 'MAGDATA', bron);
   const d = t.geschreven.filter((p) => p.type === 'D');
   assert.ok(d.length > 64, `verwachtte meer dan 64 D-pakketten, kreeg ${d.length}`);
+
+  // Het Kermit-volgnummerveld staat altijd op rauw[2], bij een korte en een
+  // lange kop, en is tochar(seq) = (seq + 32) & 255. Boven de 63 levert dat
+  // bytes vanaf 96 op: buiten het bereik dat het apparaat verwacht.
+  const nrs = d.map((p) => p.rauw[2]);
+  for (const b of nrs) {
+    assert.ok(b >= 32 && b <= 95, `volgnummerbyte ${b} valt buiten 32..95`);
+  }
+  // 3, 4, ... 63, 0, 1, ... : het eerste D-pakket draagt volgnummer 3
+  assert.deepEqual(nrs, d.map((_, i) => 32 + ((i + 3) % 64)));
+  // en de reeks loopt echt om, hij klimt niet door
+  const top = nrs.indexOf(95);
+  assert.ok(top >= 0 && top < nrs.length - 1, 'volgnummer 63 moet voorkomen');
+  assert.equal(nrs[top + 1], 32, 'na 63 hoort 0 te komen');
+  assert.ok(new Set(nrs).size < nrs.length, 'volgnummers moeten hergebruikt worden');
 });
 
 test('voortgang loopt van 0 naar het totaal en gaat nooit terug', async () => {
@@ -88,6 +105,30 @@ test('een E-pakket van de rekenmachine wordt een leesbare fout', async () => {
     : encodePacket(0, 'Y'));
   await assert.rejects(() => stuurPython(t, 'MAGDATA', 'x = 1\n'),
     /geen ruimte/);
+});
+
+test('een fouttekst met niet-ASCII bytes blijft leesbaar', async () => {
+  // 0xe9 is 'e' met accent in latin1; een UTF-8-decoder maakt er U+FFFD van.
+  const fout = Uint8Array.of(0x67, 0x65, 0xeb, 0x69, 0x6e, 0x64, 0x69, 0x67, 0x64);
+  const t = new NepTransport((i) => i === 0
+    ? encodePacket(0, 'E', fout)
+    : encodePacket(0, 'Y'));
+  await assert.rejects(() => stuurPython(t, 'MAGDATA', 'x = 1\n'), (e) => {
+    assert.match(e.message, /ge\u00ebindigd/);
+    assert.ok(!e.message.includes('\ufffd'), 'geen vervangingstekens in de fouttekst');
+    return true;
+  });
+});
+
+test('een E-pakket op het A-pakket wordt ook opgemerkt', async () => {
+  // Het derde schrijven (index 2) is het A-pakket met de payloadlengte.
+  // Zonder de ack daarna zou deze fout pas bij het volgende pakket opvallen,
+  // of helemaal niet.
+  const t = new NepTransport((i) => i === 2
+    ? encodePacket(0, 'E', new TextEncoder().encode('bestand te groot'))
+    : encodePacket(0, 'Y'));
+  await assert.rejects(() => stuurPython(t, 'MAGDATA', 'x = 1\n'),
+    /bestand te groot/);
 });
 
 test('een onverwacht antwoordtype is een fout, geen stilte', async () => {

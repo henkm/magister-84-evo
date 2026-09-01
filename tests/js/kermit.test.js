@@ -72,6 +72,26 @@ test('chunkEnd knipt nooit een escape-paar doormidden', () => {
   }
 });
 
+test('geparseerde antwoordpakketten zijn gelijk aan de Python-kant', () => {
+  // Dekt beide kopvormen: de korte (3 bytes) en de lange (7 bytes). Zonder een
+  // echt lang pakket blijft de keuze p[1] === 32 ongetoetst en lekken er drie
+  // kopbytes in de data van elk antwoord boven de 77 bytes.
+  for (const v of GOUD.parse_packet) {
+    const uit = parsePacket(vanHex(v.rauw));
+    assert.equal(uit.type, v.type, v.rauw);
+    assert.equal(naarHex(uit.data), v.data, v.rauw);
+  }
+  const langeKoppen = GOUD.parse_packet.filter((v) => vanHex(v.rauw)[1] === 32);
+  assert.ok(langeKoppen.length >= 2, 'er moeten echt lange pakketten bij zitten');
+});
+
+test('een kort F-pakket krijgt toch de lange kop', () => {
+  // Spiegelt tests/test_kermit.py::test_long_packet_used_for_F_even_when_short.
+  const p = encodePacket(1, 'F', Uint8Array.of(120));
+  assert.equal(p[1], 32, 'type F is altijd een lang pakket');
+  assert.deepEqual(parsePacket(p), { type: 'F', data: Uint8Array.of(120) });
+});
+
 test('antwoordpakketten worden geparseerd, kort en lang', () => {
   const kort = encodePacket(3, 'Y', new Uint8Array(0));
   assert.deepEqual(parsePacket(kort), { type: 'Y', data: new Uint8Array(0) });
