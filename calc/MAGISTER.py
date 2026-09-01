@@ -159,6 +159,18 @@ def rand(x, y, w, h, rgb):
     D.draw_rect(x, y, w, h)
 
 
+def lijn(x, y, w, rgb):
+    """Een horizontale streep van 1 pixel hoog.
+
+    Bewust draw_line en geen fill_rect: gemeten op het apparaat op 2026-09-01
+    weigert ti_draw een rechthoek van 1 hoog met "tidrawException: Height
+    cannot be negative", terwijl 17 en 22 hoog in hetzelfde beeld wel gingen.
+    Een streep is bovendien precies wat draw_line is.
+    """
+    kleur(rgb)
+    D.draw_line(x, y, x + w - 1, y)
+
+
 def kop(titel, rechts=""):
     vlak(0, 0, 319, 22, BLAUW)
     tekst(6, 3, titel, WIT)
@@ -178,7 +190,7 @@ def contextbalk(links, rechts="", verouderd=False):
     if rechts:
         x = 181 if verouderd else right_x(rechts)
         tekst(x, 23, rechts, GEDEMPT)
-    vlak(0, 39, 319, 1, AZUUR)
+    lijn(0, 39, 319, AZUUR)
 
 
 def voetbalk(links, rechts=""):
@@ -290,7 +302,7 @@ def lesregel(y, rij, geselecteerd=False):
     tekst(TEKST_X, y + 18, docent, GEDEMPT)
 
     if rij[L_STATUS] == "vervallen":
-        vlak(TEKST_X, y + 10, breedte, 1, GEDEMPT)
+        lijn(TEKST_X, y + 10, breedte, GEDEMPT)
 
     if chip:
         b = chip_breedte(chip)
@@ -304,12 +316,12 @@ def lesregel(y, rij, geselecteerd=False):
 def gatregel(y, rij):
     label = "tussenuur %s-%s" % (rij[L_BEGIN], rij[L_EIND])
     tekst(80, y + 10, label, GEDEMPT)
-    vlak(8, y + 18, 64, 1, GEDEMPT)
+    lijn(8, y + 18, 64, GEDEMPT)
     # De rechterlijn begon op een vaste x=256 en liep daarmee dwars door het
     # label heen; nu begint hij pas waar het label eindigt.
     start = 80 + text_width(label) + 8
     if start < 311:
-        vlak(start, y + 18, 311 - start, 1, GEDEMPT)
+        lijn(start, y + 18, 311 - start, GEDEMPT)
 
 
 # --- tekenlaag: het roosterscherm ---
@@ -462,7 +474,7 @@ def toon_lesdetail(dag_i, rij_i, scroll=0):
         label = "toets" if chip == "TOETS" else "huiswerk"
         vlak(0, 76, 319, 17, WIT)
         tekst(6, 77, label, BLAUW)
-        vlak(0, 93, 319, 1, AZUUR)
+        lijn(0, 93, 319, AZUUR)
         # De omschrijving zit op een vast anker (160/176) zodat hij niet
         # meebeweegt met de lengte van het huiswerk. Van 96 tot 191 passen
         # precies zes regels van 16 px (96, 112, 128, 144, 160, 176); zonder

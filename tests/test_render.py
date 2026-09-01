@@ -7,6 +7,11 @@ def vlakken(calls):
 def teksten(calls):
     return [c for c in calls if c[0] == "draw_text"]
 
+def lijnen(calls):
+    """Strepen van een pixel: die tekent de app met draw_line, want ti_draw
+    op de Evo weigert een fill_rect van 1 hoog."""
+    return [c for c in calls if c[0] == "draw_line"]
+
 def kleuren_in_gebied(calls, y_min, y_max):
     """Kleuren van teken-oproepen (fill_rect/draw_rect/draw_text) waarvan de
     y-positie in [y_min, y_max) valt, gekoppeld via de voorafgaande
@@ -25,7 +30,7 @@ def kleuren_in_gebied(calls, y_min, y_max):
 def test_contextbalk_and_separator(tekeningen):
     M.contextbalk("7 lessen", "gesynct 07:41")
     assert ("fill_rect", 0, 22, 319, 17) in vlakken(tekeningen)
-    assert ("fill_rect", 0, 39, 319, 1) in vlakken(tekeningen)
+    assert ("draw_line", 0, 39, 318, 39) in lijnen(tekeningen)
     assert ("draw_text", 6, 41, "7 lessen") in teksten(tekeningen)
 
 def test_stale_data_gets_an_orange_marker(tekeningen):
@@ -125,9 +130,8 @@ def test_single_digit_badge_keeps_the_same_column(tekeningen):
 
 def test_cancelled_lesson_is_white_grey_and_struck_through(tekeningen):
     M.lesregel(42, _les(status="vervallen", chip="VERVALT"))
-    v = vlakken(tekeningen)
-    assert ("fill_rect", 0, 42, 319, 36) in v
-    doorhaling = [c for c in v if c[4] == 1 and c[2] == 52]
+    assert ("fill_rect", 0, 42, 319, 36) in vlakken(tekeningen)
+    doorhaling = [c for c in lijnen(tekeningen) if c[2] == 52]
     assert doorhaling and doorhaling[0][1] == 118
 
 def test_changed_lesson_has_an_orange_accent_bar(tekeningen):
@@ -152,7 +156,7 @@ def test_gap_row_draws_rules_not_a_band(tekeningen):
     M.gatregel(42, ("gat", "09:45", "10:30", "", "", "", "", "normaal", "", "", ""))
     v = vlakken(tekeningen)
     assert not [c for c in v if c[3] == 319 and c[4] == 36]
-    assert ("fill_rect", 8, 60, 64, 1) in v
+    assert ("draw_line", 8, 60, 71, 60) in lijnen(tekeningen)
     assert ("draw_text", 80, 70, "tussenuur 09:45-10:30") in teksten(tekeningen)
 
 def test_de_tijd_loopt_niet_meer_onder_de_badge_door(tekeningen):
@@ -254,10 +258,9 @@ def test_cancelled_strikethrough_stays_within_the_screen(tekeningen):
     M.lesregel(42, _les(status="vervallen",
                          vak="wiskunde D versneld traject bovenbouw",
                          lokaal="A1.23"))
-    doorhaling = [c for c in vlakken(tekeningen) if c[4] == 1 and c[2] == 52]
+    doorhaling = [c for c in lijnen(tekeningen) if c[2] == 52]
     assert doorhaling
-    x, w = doorhaling[0][1], doorhaling[0][3]
-    assert x + w <= M.RIGHT
+    assert doorhaling[0][3] <= M.RIGHT
 
 def test_subject_gets_the_full_width_when_there_is_no_room(tekeningen):
     # 19 tekens: het volle budget van de tekstkolom (313 - 118 = 195 px)
