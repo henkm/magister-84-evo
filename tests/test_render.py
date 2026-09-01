@@ -201,24 +201,19 @@ def test_teacher_name_never_crosses_the_right_edge(tekeningen):
 
 def test_today_gets_the_vandaag_header(tekeningen):
     M.toon_dag(0, 0, 0)
-    assert ("draw_text", 6, 6, "VANDAAG") in teksten(tekeningen)
+    assert ("draw_text", 6, 21, "VANDAAG") in teksten(tekeningen)
 
 def test_other_days_get_the_rooster_header(tekeningen):
     M.toon_dag(1, 0, 0)
-    assert ("draw_text", 6, 6, "ROOSTER") in teksten(tekeningen)
+    assert ("draw_text", 6, 21, "ROOSTER") in teksten(tekeningen)
 
 def test_day_screen_places_rows_on_the_design_pitch(tekeningen):
     # Rij 1 van de fixture is een tussenuur en tekent geen band, dus de
-    # banden staan op 42, 98 en 126 - niet op 42, 70, 98.
+    # banden staan op 42, 118 en 156 - niet op 42, 80, 118.
     M.toon_dag(0, 0, 0)
-    banden = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 26]
-    assert [c[2] for c in banden][:3] == [42, 98, 126]
-    assert ("draw_text", 80, 70, "tussenuur 09:45-10:30") in teksten(tekeningen)
-
-def test_day_screen_shows_a_more_indicator(tekeningen):
-    M.toon_dag(0, 0, 0)
-    labels = [c[3] for c in teksten(tekeningen)]
-    assert any(s.startswith("v ") and "meer" in s for s in labels)
+    banden = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 36]
+    assert [c[2] for c in banden][:3] == [42, 118, 156]
+    assert ("draw_text", 80, 108, "tussenuur 09:45-10:30") in teksten(tekeningen)
 
 def test_empty_day_shows_the_notice_block(tekeningen):
     M.toon_dag(2, 0, 0)
@@ -246,26 +241,26 @@ def test_empty_day_context_bar_still_shows_staleness_marker(tekeningen):
     finally:
         M.GESYNCT_UREN = origineel
     assert ("fill_rect", 169, 26, 6, 6) in vlakken(tekeningen)
-    assert ("draw_text", 181, 25, M.GESYNCT) in teksten(tekeningen)
+    assert ("draw_text", 181, 41, M.GESYNCT) in teksten(tekeningen)
 
 def test_scroll_past_the_end_of_the_list_is_clamped(tekeningen):
-    # Dag 0 heeft 6 rijen; met ZICHTBAAR=5 is scroll=1 de hoogst geldige
+    # Dag 0 heeft 6 rijen; met ZICHTBAAR=4 is scroll=2 de hoogst geldige
     # waarde. Een hogere scroll mag de lijst niet in lege ruimte laten
     # doorschuiven (minder rijen dan er zichtbaar zouden moeten zijn).
     M.toon_dag(0, 0, 5)
-    banden = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 26]
-    assert [c[2] for c in banden] == [70, 98, 126, 154]
+    banden = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 36]
+    assert [c[2] for c in banden] == [42, 80, 118, 156]
 
 def test_negative_scroll_is_clamped_to_zero(tekeningen):
     M.toon_dag(0, 0, -3)
-    banden = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 26]
-    assert [c[2] for c in banden][:3] == [42, 98, 126]
+    banden = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 36]
+    assert [c[2] for c in banden][:3] == [42, 118, 156]
 
 def test_selected_row_within_the_window_gets_the_selection_frame(tekeningen):
     # selectie=2 is de natuurkunde-les (rij-index 2), zichtbaar bij scroll=0.
     M.toon_dag(0, 2, 0)
     randen = [c for c in tekeningen if c[0] == "draw_rect"]
-    assert ("draw_rect", 0, 98, 317, 24) in randen
+    assert ("draw_rect", 0, 118, 317, 34) in randen
 
 def test_selection_outside_the_window_draws_no_selection_frame(tekeningen):
     # selectie=5 (geschiedenis) valt buiten het zichtbare venster bij
@@ -276,6 +271,24 @@ def test_selection_outside_the_window_draws_no_selection_frame(tekeningen):
     assert randen == []
     kleuren = [c[1:] for c in tekeningen if c[0] == "set_color"]
     assert M.SELECTIE not in kleuren
+
+def test_het_roosterscherm_toont_vier_rijen_die_op_de_voetbalk_eindigen(tekeningen):
+    M.toon_dag(0)
+    banden = [c for c in tekeningen if c[0] == "fill_rect" and c[3] == 319 and c[4] == 36]
+    assert len(banden) <= M.ZICHTBAAR
+    for c in banden:
+        assert c[2] + c[4] <= 192
+
+def test_de_meer_indicator_van_het_roosterscherm_is_vervangen_door_de_scrollbaan(tekeningen):
+    # Met vier zichtbare rijen eindigt de lijst op 191 en is er geen ruimte
+    # meer voor een tekstregel; de scrollbaan neemt die rol over.
+    # Let op: een kale "meer" in s zou hier vals positief slaan op de
+    # afgekapte docentnaam "Vermeer." in de fixture, dus de check kijkt naar
+    # het exacte, vervallen formaat "v N lessen meer".
+    M.toon_dag(0, 0, 0)
+    assert not [c for c in tekeningen if c[0] == "draw_text"
+                and c[3].startswith("v ") and "lessen meer" in c[3]]
+    assert [c for c in tekeningen if c[0] == "fill_rect" and c[1] == M.SCROLL_X]
 
 # --- lesdetail, vakkenlijst, cijfers ---
 
@@ -317,13 +330,21 @@ def test_missing_average_shows_geen(tekeningen):
     M.toon_vakken(0, 0)
     assert "geen" in [c[3] for c in teksten(tekeningen)]
 
-def test_grade_rows_place_the_block_at_281(tekeningen):
+def test_grade_rows_place_the_block_at_269(tekeningen):
     M.toon_cijfers(0, 0)
-    assert ("fill_rect", 281, 46, 32, 18) in vlakken(tekeningen)
+    assert ("fill_rect", 269, 50, 44, 20) in vlakken(tekeningen)
 
 def test_non_numeric_grade_is_grey(tekeningen):
     M.toon_cijfers(2, 0)
     assert ("set_color",) + M.GEDEMPT in [c for c in tekeningen if c[0] == "set_color"]
+
+def test_een_tien_past_in_het_cijferblok(tekeningen):
+    breedte = M.text_width("10,0")
+    assert breedte <= M.CIJFER_W
+    x = M.CIJFER_X + (M.CIJFER_W - breedte) // 2
+    assert x >= M.CIJFER_X
+    assert x + breedte <= M.CIJFER_X + M.CIJFER_W
+    assert M.CIJFER_X + M.CIJFER_W <= M.SCROLL_X
 
 # --- randgevallen: niets buiten het scherm, niets over de buur ---
 #
@@ -399,13 +420,14 @@ def test_subject_list_stays_within_the_screen_and_name_never_hits_average(tekeni
             x, y, w, h = c[1], c[2], c[3], c[4]
             assert x + w <= M.SCREEN_W, f"{c} loopt over de rechterrand"
             assert y + h <= M.SCREEN_H, f"{c} loopt over de onderrand"
-        if c[0] == "draw_text":
-            x, y, s = c[1], c[2], c[3]
-            assert x + M.text_width(s) <= M.SCREEN_W, f"{c} loopt over de rechterrand"
-            assert y <= M.SCREEN_H, f"{c} loopt over de onderrand"
+    # Voor tekst is een losse "y <= SCREEN_H"-vergelijking na de ankerregel
+    # onjuist: draw_text-y is top+18, dus de voetbalk (top=193) meldt zich op
+    # 211 terwijl het letterblok (193..209) prima binnen het scherm past.
+    # binnen_scherm() rekent wel met de bovenkant.
+    layoutregels.binnen_scherm(tekeningen, M)
 
     for y in (42, 66, 90, 114, 138, 162):
-        regel = [c for c in teksten(tekeningen) if c[2] == y + 6]
+        regel = [c for c in teksten(tekeningen) if c[2] == y + 21]
         naam = [c for c in regel if c[1] == 14][0]
         rest = [c for c in regel if c[1] != 14]
         assert rest, "geen gemiddelde/geen-tekst gevonden op deze regel"
@@ -415,7 +437,7 @@ def test_subject_list_stays_within_the_screen_and_name_never_hits_average(tekeni
 
     # 7 vakken, 6 zichtbaar: de scrollbar (niet een onderschrift) signaleert
     # dat er meer is.
-    assert ("fill_rect", 311, 42, 4, 138) in vlakken(tekeningen)
+    assert ("fill_rect", 315, 42, 4, 150) in vlakken(tekeningen)
 
 def test_subject_list_shows_six_rows(tekeningen):
     origineel = M.VAKKEN
@@ -468,17 +490,18 @@ def test_grade_rows_stay_within_the_screen_and_description_never_hits_the_block(
             x, y, w, h = c[1], c[2], c[3], c[4]
             assert x + w <= M.SCREEN_W, f"{c} loopt over de rechterrand"
             assert y + h <= M.SCREEN_H, f"{c} loopt over de onderrand"
-        if c[0] == "draw_text":
-            x, y, s = c[1], c[2], c[3]
-            assert x + M.text_width(s) <= M.SCREEN_W, f"{c} loopt over de rechterrand"
-            assert y <= M.SCREEN_H, f"{c} loopt over de onderrand"
+    # Voor tekst is een losse "y <= SCREEN_H"-vergelijking na de ankerregel
+    # onjuist: draw_text-y is top+18, dus de voetbalk (top=193) meldt zich op
+    # 211 terwijl het letterblok (193..209) prima binnen het scherm past.
+    # binnen_scherm() rekent wel met de bovenkant.
+    layoutregels.binnen_scherm(tekeningen, M)
 
-    for y in (42, 70, 98):
+    for y in (42, 80, 118):
         regel = [c for c in teksten(tekeningen)
-                 if c[1] == 14 and c[2] in (y + 5, y + 16)]
+                 if c[1] == 14 and c[2] in (y + 20, y + 36)]
         assert regel
         for c in regel:
-            assert c[1] + M.text_width(c[3]) <= 281, \
+            assert c[1] + M.text_width(c[3]) <= M.CIJFER_X, \
                 "omschrijving/meta botst met het cijferblok"
 
 def test_grade_screen_title_never_hits_the_average(tekeningen):
@@ -497,8 +520,8 @@ def test_grade_screen_title_never_hits_the_average(tekeningen):
     finally:
         M.VAKKEN = origineel
 
-    titel = [c for c in teksten(tekeningen) if c[1] == 6 and c[2] == 6][0]
-    rechts = [c for c in teksten(tekeningen) if c[2] == 6 and c[1] != 6][0]
+    titel = [c for c in teksten(tekeningen) if c[1] == 6 and c[2] == 21][0]
+    rechts = [c for c in teksten(tekeningen) if c[2] == 21 and c[1] != 6][0]
     assert titel[1] + M.text_width(titel[3]) <= rechts[1], \
         "titel botst met het rechts uitgelijnde gemiddelde"
 
@@ -560,14 +583,39 @@ def test_grade_screen_scroll_past_the_end_is_clamped(tekeningen):
     ]
     try:
         M.toon_cijfers(0, 999)
-        te_ver = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 26]
+        te_ver = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 36]
         tekeningen.clear()
         M.toon_cijfers(0, -9)
-        negatief = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 26]
+        negatief = [c for c in vlakken(tekeningen) if c[3] == 319 and c[4] == 36]
     finally:
         M.VAKKEN = origineel
-    assert [c[2] for c in te_ver] == [42, 70, 98, 126, 154]
-    assert [c[2] for c in negatief] == [42, 70, 98, 126, 154]
+    assert [c[2] for c in te_ver] == [42, 80, 118, 156]
+    assert [c[2] for c in negatief] == [42, 80, 118, 156]
+
+def test_geen_enkel_scherm_overtreedt_de_drie_regels(tekeningen):
+    for i in range(len(M.DAGEN)):
+        rijen = M.DAGEN[i][3]
+        for scroll in range(0, max(1, len(rijen))):
+            for selectie in range(0, max(1, len(rijen))):
+                tekeningen.clear()
+                M.toon_dag(i, selectie, scroll)
+                layoutregels.binnen_scherm(tekeningen, M)
+                layoutregels.geen_tekstoverlap(tekeningen, M)
+                layoutregels.tekst_op_andere_kleur(tekeningen, M)
+    for scroll in range(0, max(1, len(M.VAKKEN))):
+        for selectie in range(0, max(1, len(M.VAKKEN))):
+            tekeningen.clear()
+            M.toon_vakken(selectie, scroll)
+            layoutregels.binnen_scherm(tekeningen, M)
+            layoutregels.geen_tekstoverlap(tekeningen, M)
+            layoutregels.tekst_op_andere_kleur(tekeningen, M)
+    for v in range(len(M.VAKKEN)):
+        for scroll in range(0, max(1, len(M.VAKKEN[v][2]))):
+            tekeningen.clear()
+            M.toon_cijfers(v, scroll)
+            layoutregels.binnen_scherm(tekeningen, M)
+            layoutregels.geen_tekstoverlap(tekeningen, M)
+            layoutregels.tekst_op_andere_kleur(tekeningen, M)
 
 # --- geen-data-scherm en hoofdlus ---
 
@@ -880,7 +928,7 @@ def test_main_clear_returning_to_today_also_resets_the_selection(tekeningen):
     beeldjes, _ = _beeldjes(tekeningen)
     laatste = beeldjes[-1]
     kaders = [c for c in laatste if c[0] == "draw_rect"]
-    assert kaders == [("draw_rect", 0, M.LIJST_Y, 317, 24)]
+    assert kaders == [("draw_rect", 0, M.LIJST_Y, 317, 34)]
 
 def test_main_key_2_resets_the_subject_selection(tekeningen):
     # 2 is de directe sprong naar de vakkenlijst; die begint altijd bovenaan,

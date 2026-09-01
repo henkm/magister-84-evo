@@ -286,9 +286,11 @@ def gatregel(y, rij):
 
 # --- tekenlaag: het roosterscherm ---
 
-RIJ_PITCH = 28
+RIJ_PITCH = 38
 LIJST_Y = 42
-ZICHTBAAR = 5
+ZICHTBAAR = 4
+CIJFER_X = 269
+CIJFER_W = 44
 
 
 def is_onvoldoende(cijfer):
@@ -352,12 +354,13 @@ def toon_dag(i, selectie=0, scroll=0):
         else:
             lesregel(y, rij, geselecteerd=(scroll + n == selectie))
 
-    rest = len(rijen) - scroll - ZICHTBAAR
-    if rest > 0:
-        tekst(8, 181, "v %d lessen meer" % rest, GEDEMPT)
     scrollbar(scroll, ZICHTBAAR, len(rijen))
     if vandaag:
-        voetbalk("^v kies  ENTER open  <> dag", "2 cijf")
+        # "^v kies  ENTER open  <> dag" (27 tekens) botst met "2 cijf" op
+        # vaste x=257: het linkerdeel liep tot x=276. Zonder "open" past het
+        # ruim (tot x=226) en blijft de betekenis intact, zoals het
+        # vakkenscherm ook al doet ("^v kies  ENTER cijfers").
+        voetbalk("^v kies  ENTER  <> dag", "2 cijf")
     else:
         voetbalk("<> dag  ENTER open  CLR vandaag")
 
@@ -430,7 +433,11 @@ def toon_vakken(selectie=0, scroll=0):
     vlak(0, 0, 319, 209, PAGINA)
     if not VAKKEN:
         kop("VAKKEN", PERIODE)
-        contextbalk("gemiddelde per vak", GESYNCT, GESYNCT_UREN >= 24)
+        # "gemiddelde per vak" (19 tekens, tot x=196) botste met de rechts
+        # uitgelijnde syncstatus ("gesynct 07:41" begint op x=183). Het
+        # bestaande "gem"-label van het cijferscherm dekt dezelfde lading in
+        # 12 tekens.
+        contextbalk("gem. per vak", GESYNCT, GESYNCT_UREN >= 24)
         mededeling("nog geen cijfers in " + PERIODE, "dit is geen fout")
         voetbalk("1 rooster  CLEAR terug")
         return
@@ -460,16 +467,16 @@ def toon_vakken(selectie=0, scroll=0):
         # of met "geen"; het budget wordt van die kolom afgeleid zodat de
         # twee elkaar nooit raken, in plaats van een vaste breedte te gokken.
         kolom = right_x(gem) if gem else 265
-        tekst(14, y + 6, truncate(naam, kolom - 8 - 14), DONKER)
+        tekst(14, y + 3, truncate(naam, kolom - 8 - 14), DONKER)
         if gem:
-            tekst(kolom, y + 6, gem, ORANJE if onvoldoende else DONKER)
+            tekst(kolom, y + 3, gem, ORANJE if onvoldoende else DONKER)
         else:
-            tekst(kolom, y + 6, "geen", GEDEMPT)
+            tekst(kolom, y + 3, "geen", GEDEMPT)
         if scroll + n == selectie:
             rand(0, y, 317, 20, BLAUW)
 
     kop("VAKKEN", PERIODE)
-    contextbalk("gemiddelde per vak", GESYNCT, GESYNCT_UREN >= 24)
+    contextbalk("gem. per vak", GESYNCT, GESYNCT_UREN >= 24)
 
     scrollbar(scroll, 6, len(VAKKEN))
     voetbalk("^v kies  ENTER cijfers", "1 rstr")
@@ -492,12 +499,12 @@ def toon_cijfers(vak_i, scroll=0):
         y = LIJST_Y + n * RIJ_PITCH
         oms, cijfer, meta, soort = zichtbaar[n]
         blokkleur = {"onvoldoende": ORANJE, "tekst": GEDEMPT}.get(soort, BLAUW)
-        vlak(0, y, 319, 26, BAND)
-        vlak(0, y, 4, 26, blokkleur)
-        tekst(14, y + 5, truncate(oms, 267), DONKER)
-        tekst(14, y + 16, truncate(meta, 267), GEDEMPT)
-        vlak(281, y + 4, 32, 18, blokkleur)
-        tekst(281 + (32 - text_width(cijfer)) // 2, y + 8, cijfer, WIT)
+        vlak(0, y, 319, 36, BAND)
+        vlak(0, y, 4, 36, blokkleur)
+        tekst(14, y + 2, truncate(oms, 247), DONKER)
+        tekst(14, y + 18, truncate(meta, 247), GEDEMPT)
+        vlak(CIJFER_X, y + 8, CIJFER_W, 20, blokkleur)
+        tekst(CIJFER_X + (CIJFER_W - text_width(cijfer)) // 2, y + 10, cijfer, WIT)
 
     scrollbar(scroll, ZICHTBAAR, len(cijfers))
     voetbalk("^v scroll  CLEAR vakken")
