@@ -61,12 +61,53 @@ test('kinderen komen met roepnaam terug', async () => {
   assert.deepEqual(k.map((x) => [x.id, x.naam]), [[6002, 'Fenna'], [6003, 'Sem']]);
 });
 
-test('de lopende aanmelding is de laatst begonnen', async () => {
+test('de lopende aanmelding is die welke nu nog loopt', async () => {
   const c = maakClient({ tenant: 'school.magister.net', token: 'x',
     haal: nepHaal([['/aanmeldingen', fixture('aanmeldingen')]]) });
-  const a = await c.aanmelding(6002);
+  const a = await c.aanmelding(6002, '2026-09-01');
   assert.equal(a.id, 88001);
   assert.equal(a.studie, '4 havo');
+});
+
+test('een beginveld met een andere naam kiest niet stiekem het oudste jaar', async () => {
+  // Op een echt account heet het beginveld Start, niet Begin. Toen de keuze
+  // nog op de begindatum rustte, sorteerde hij op lege strings, won de eerste
+  // uit de lijst, en kwam de aanmelding van drie jaar terug eruit - met een
+  // peildatum uit 2024 en een HTTP 400 op de cijfers als gevolg.
+  const oudsteEerst = { Items: [
+    { Id: 47902, Start: '2023-08-28', Einde: '2024-07-30',
+      Studie: { Omschrijving: '1 havo' } },
+    { Id: 59110, Start: '2024-08-26', Einde: '2025-07-18',
+      Studie: { Omschrijving: '2 havo' } },
+    { Id: 71004, Start: '2026-08-24', Einde: '2027-07-16',
+      Studie: { Omschrijving: '4 havo' } },
+  ] };
+  const c = maakClient({ tenant: 'school.magister.net', token: 'x',
+    haal: nepHaal([['/aanmeldingen', oudsteEerst]]) });
+  const a = await c.aanmelding(20549, '2026-09-01');
+  assert.equal(a.id, 71004);
+  assert.equal(a.van, '2026-08-24', 'Start hoort ook als begindatum te tellen');
+  assert.equal(a.tot, '2027-07-16');
+});
+
+test('van twee jaren die nog niet voorbij zijn wint het jaar waar je nu in zit', async () => {
+  const twee = { Items: [
+    { Id: 1, Start: '2027-08-23', Einde: '2028-07-14' },
+    { Id: 2, Start: '2026-08-24', Einde: '2027-07-16' },
+  ] };
+  const c = maakClient({ tenant: 'school.magister.net', token: 'x',
+    haal: nepHaal([['/aanmeldingen', twee]]) });
+  assert.equal((await c.aanmelding(1, '2026-09-01')).id, 2);
+});
+
+test('is alles afgelopen, dan wint het laatst geeindigde jaar', async () => {
+  const oud = { Items: [
+    { Id: 1, Einde: '2024-07-30' },
+    { Id: 2, Einde: '2025-07-18' },
+  ] };
+  const c = maakClient({ tenant: 'school.magister.net', token: 'x',
+    haal: nepHaal([['/aanmeldingen', oud]]) });
+  assert.equal((await c.aanmelding(1, '2026-09-01')).id, 2);
 });
 
 test('het token gaat mee als Bearer en staat nergens in de url', async () => {

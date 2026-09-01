@@ -87,20 +87,41 @@ export function maakClient({ tenant, token, haal = globalThis.fetch }) {
     },
 
     /** De lopende aanmelding: die met de laatste begindatum. */
-    async aanmelding(persoonId) {
+    /**
+     * De lopende aanmelding: die met een einddatum die nog niet voorbij is,
+     * en van die groep de vroegste - dat is het schooljaar waar de leerling
+     * nu in zit, niet het jaar erna.
+     *
+     * Bewust gekozen op de EINDdatum en niet op de begindatum. Magister noemt
+     * het beginveld niet overal hetzelfde, en een veld dat niet gelezen wordt
+     * levert een sortering op die stilzwijgend niets doet: dan wint de eerste
+     * uit de lijst, en dat was op een echt account de aanmelding van drie jaar
+     * geleden. De cijfercall kreeg daardoor een peildatum uit 2024 en gaf 400.
+     * De einddatum wordt aantoonbaar wel gelezen, dus daar rust de keuze op.
+     */
+    async aanmelding(persoonId, vandaag) {
       const j = await get(`/api/personen/${persoonId}/aanmeldingen`);
+      const nu = vandaag || new Date().toISOString().slice(0, 10);
       const alle = rijen(j).map((a) => ({
         id: veld(a, 'id'),
-        van: veld(a, 'begin') || '',
-        tot: veld(a, 'einde') || '',
+        van: veld(a, 'begin') || veld(a, 'start') || veld(a, 'aanvang') || '',
+        tot: veld(a, 'einde') || veld(a, 'eind') || '',
         studie: veld(veld(a, 'studie') || {}, 'omschrijving')
           || veld(veld(a, 'studie') || {}, 'code') || '',
       }));
-      alle.sort((a, b) => String(b.van).localeCompare(String(a.van)));
       if (!alle.length) {
         throw new MagisterFout('geen-aanmelding',
           'Dit account heeft geen aanmelding voor een schooljaar.', {});
       }
+
+      const lopend = alle.filter((a) => a.tot && a.tot >= nu);
+      if (lopend.length) {
+        lopend.sort((a, b) => a.tot.localeCompare(b.tot));
+        return lopend[0];
+      }
+      // Alles is afgelopen: neem het laatst geeindigde jaar. Dat is het jaar
+      // waar nog cijfers in staan, en cijfers() krijgt er een peildatum bij.
+      alle.sort((a, b) => String(b.tot).localeCompare(String(a.tot)));
       return alle[0];
     },
 
