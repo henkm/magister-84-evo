@@ -1,0 +1,10 @@
+{
+  "name": "magister-ti84",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chrome-extensie die Magister naar een TI-84 Evo-T synct",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}
