@@ -34,7 +34,8 @@ Twee programma's gaan naar het apparaat:
    Die keuze wordt onthouden.
 4. Sluit de rekenmachine aan, zet hem aan en klik **Nu syncen**. De eerste keer
    vraagt Chrome eenmalig toestemming voor het apparaat.
-5. Laat de kabel zitten tot het eindscherm verschijnt.
+5. Laat de kabel zitten tot het eindscherm verschijnt. Moet het toch stoppen,
+   gebruik dan **Afbreken** en niet de kabel.
 
 ## Let op: elke sync overschrijft alles
 
@@ -46,6 +47,27 @@ Dat is opzet. Breekt de transfer af tijdens `MAGDATA`, dan staat de app er al
 en toont hij zijn eigen scherm dat er opnieuw gesynct moet worden. Een
 gecombineerd bestand zou bij dezelfde storing een half programma achterlaten
 dat helemaal niet meer start.
+
+**Afbreken** stopt op de eerstvolgende pakketgrens: het lopende pakket wordt
+nog bevestigd en daarna gaat de poort dicht. Wat er tot dat moment verstuurd
+is, blijft op de rekenmachine staan — precies dezelfde situatie als een kabel
+die eruit valt, en de app vangt dat zelf op. Zolang een sync loopt, doet **Nu
+syncen** niets; twee transfers tegelijk op een poort kan niet.
+
+## Wat er op de rekenmachine past
+
+Een programma op de Evo heeft een 16-bits lengteveld: `MAGDATA` mag hooguit
+65535 bytes zijn. Twee dingen houden het daaronder.
+
+- **Huiswerk wordt afgekapt op 240 tekens**, met `...` erachter zodat te zien
+  is dat er meer was. Het lesdetail toont dertig tekens per regel, dus 240
+  tekens is acht regels scrollen — en de `Inhoud`-velden van Magister zijn
+  regelmatig langer dan dat. Zonder die grens past een leerling met acht
+  lesuren huiswerk per dag niet meer in een programma.
+- **Past het dan nog niet, dan gaan er hele dagen van achteren af** tot het
+  wel past. Vandaag is waar het om gaat, de vierde week niet. Het eindscherm
+  meldt tot hoeveel dagen het rooster is ingekort. Alleen als zelfs een enkele
+  dag niet past, stopt de sync met een fout.
 
 ## Wat er met je token gebeurt
 
@@ -69,10 +91,17 @@ console en niet in een foutmelding. In `chrome.storage.local` staan alleen
 ## Testen
 
 ```bash
-node --test                      # JavaScript: protocol, client, model, flow
+node --test                      # JavaScript: protocol, client, model, paneel
 python3 -m pytest tests/ -q      # Python: de app, de layout, de kruiscontrole
 python3 -m tools.check_extension # verwijzingen in extension/
 ```
+
+De JavaScript-tests draaien ook het paneel zelf. `tests/js/paneelomgeving.js`
+zet daarvoor een browser neer die niet bestaat — een DOM, `chrome.*`, een
+Magister die antwoordt en een rekenmachine aan een seriële poort — zodat de
+naad tussen de modules te testen is zonder Chrome, zonder Magister-sessie en
+zonder apparaat. Dat is de laag waar de losse modules elk voor zich kloppen
+maar de volgorde ertussen misgaat.
 
 `check_extension` loopt na of het manifest geldig is en of alles waar de
 extensie naar wijst ook echt bestaat: de pictogrammen, wat `panel.html`

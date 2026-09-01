@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BEGIN, FOUTEN, percentage, volgende } from '../../extension/src/stroom.js';
+import { BEGIN, FOUTEN, cijfersBijschrift, foutknop, gereedSlot, percentage,
+  volgende } from '../../extension/src/stroom.js';
 
 const na = (...gebeurtenissen) =>
   gebeurtenissen.reduce((t, g) => volgende(t, g), BEGIN);
@@ -169,4 +170,75 @@ test('geen enkele fouttekst noemt een token of een sleutel', () => {
       assert.ok(!alles.includes(woord), `"${woord}" hoort niet in een fouttekst`);
     }
   }
+});
+
+// --- de knop op het foutscherm ---------------------------------------------
+//
+// Een foutscherm zonder werkende knop is een doodlopende weg: het paneel leeft
+// in een eigen venster, en op het pictogram klikken zet dat venster alleen maar
+// op de voorgrond. De knop moet dus opnieuw doen wat er misging.
+
+test('een fout tijdens de start laat de knop de start opnieuw doen', () => {
+  for (const soort of ['sessie-verlopen', 'netwerkfout', 'geen-toegang',
+    'magister-fout', 'onbekend']) {
+    const t = volgende(BEGIN, { type: 'fout', soort, bron: 'start' });
+    assert.equal(foutknop(t).actie, 'herstart', soort);
+    assert.equal(foutknop(t).tekst, FOUTEN[soort].knop, soort);
+  }
+});
+
+test('dezelfde fout tijdens een sync laat de knop de sync opnieuw doen', () => {
+  for (const soort of ['sessie-verlopen', 'netwerkfout', 'magister-fout',
+    'verbinding-afgebroken', 'onbekend']) {
+    const t = volgende(BEGIN, { type: 'fout', soort, bron: 'sync' });
+    assert.equal(foutknop(t).actie, 'sync', soort);
+  }
+});
+
+test('niet-ingelogd opent Magister en biedt daarna een weg terug', () => {
+  const t = volgende(BEGIN, { type: 'fout', soort: 'niet-ingelogd',
+    bron: 'start' });
+  assert.equal(foutknop(t).actie, 'magister');
+  assert.equal(foutknop(t).tekst, 'Magister openen');
+  // na het openen van de tab moet de gebruiker terug kunnen komen
+  const na_tab = volgende(t, { type: 'fout', soort: 'niet-ingelogd',
+    bron: 'start', geopend: true });
+  assert.equal(foutknop(na_tab).actie, 'herstart');
+  assert.match(foutknop(na_tab).tekst, /opnieuw/i);
+});
+
+test('een fout met een eigen uitweg houdt die uitweg', () => {
+  const acties = { 'geen-rekenmachine': 'poort', 'geen-aanmelding': 'anderKind',
+    'te-groot': 'sluiten' };
+  for (const [soort, actie] of Object.entries(acties)) {
+    const t = volgende(BEGIN, { type: 'fout', soort, bron: 'sync' });
+    assert.equal(foutknop(t).actie, actie, soort);
+    assert.equal(foutknop(t).tekst, FOUTEN[soort].knop, soort);
+  }
+});
+
+test('de rekenmachinefout vertelt ook over het beginscherm', () => {
+  // dit is de enige aanwijzing die een niet-antwoordend apparaat oplost
+  assert.match(FOUTEN['geen-rekenmachine'].stap, /beginscherm/);
+});
+
+// --- de tekst op het gereedscherm ------------------------------------------
+
+test('nul cijfers levert geen bungelend scheidingsteken op', () => {
+  const bij = cijfersBijschrift({ cijfers: 0, periode: '' });
+  assert.equal(bij.endsWith('·'), false, `"${bij}" eindigt op een scheiding`);
+  assert.match(bij, /cijfers/);
+  assert.equal(cijfersBijschrift({ cijfers: 41, periode: 'P1 · P2' }),
+    'cijfers · P1 · P2');
+  assert.equal(cijfersBijschrift({ cijfers: 3, periode: '' }).endsWith('·'),
+    false);
+});
+
+test('een ingekort rooster staat op het gereedscherm', () => {
+  const heel = gereedSlot({ tijd: '09:12', dagen: 28, gevraagd: 28 });
+  assert.equal(/ingekort/.test(heel), false);
+  assert.match(heel, /gesynct 09:12/);
+  const kort = gereedSlot({ tijd: '09:12', dagen: 19, gevraagd: 28 });
+  assert.match(kort, /19 dagen/);
+  assert.match(kort, /ingekort|past/);
 });

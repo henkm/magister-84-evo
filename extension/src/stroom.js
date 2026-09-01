@@ -72,7 +72,8 @@ export const FOUTEN = {
     body: 'De data uit Magister is binnen en staat klaar. Alleen het versturen '
       + 'kan nog niet.',
     stap: '1 · Sluit de USB-C-kabel aan beide kanten aan. 2 · Zet de '
-      + 'rekenmachine aan met ON. 3 · Kies hem opnieuw in het venster van Chrome.',
+      + 'rekenmachine aan met ON en ga naar het beginscherm. 3 · Kies hem '
+      + 'opnieuw in het venster van Chrome.',
     knop: 'Rekenmachine kiezen',
   },
   'verbinding-afgebroken': {
@@ -88,7 +89,8 @@ export const FOUTEN = {
     kop: 'De gegevens passen niet op de rekenmachine',
     body: 'Er is meer data dan er in een programma past. Er is niets naar de '
       + 'rekenmachine gestuurd.',
-    stap: 'Meld dit; de extensie moet dan minder weken rooster meesturen.',
+    stap: 'Meld dit: de extensie kort het rooster zelf al in, en zelfs een '
+      + 'enkele dag past niet.',
     knop: 'Sluiten',
   },
   onbekend: {
@@ -99,6 +101,54 @@ export const FOUTEN = {
     knop: 'Opnieuw proberen',
   },
 };
+
+// Wat de knop op het foutscherm doet. Namen, geen functies: deze module kent
+// geen DOM en geen chrome.*.
+const EIGEN_ACTIE = {
+  'niet-ingelogd': 'magister',
+  'geen-rekenmachine': 'poort',
+  'geen-aanmelding': 'anderKind',
+  'te-groot': 'sluiten',
+};
+
+/**
+ * De knop op het foutscherm: { tekst, actie }. "Opnieuw proberen" doet
+ * opnieuw wat er misging -- de start of de sync -- en niet alleen een ander
+ * scherm tonen, want dan blijft de halve toestand staan waarin het misging.
+ */
+export function foutknop(t) {
+  const f = t.fout || {};
+  const soort = FOUTEN[f.soort] ? f.soort : 'onbekend';
+  const opnieuw = f.bron === 'start' ? 'herstart' : 'sync';
+  // De tab staat open, dus "Magister openen" is op: nu moet er een weg terug
+  // zijn, anders is dit scherm een doodlopende weg.
+  if (soort === 'niet-ingelogd' && f.geopend) {
+    return { tekst: 'Opnieuw proberen', actie: opnieuw };
+  }
+  return { tekst: FOUTEN[soort].knop, actie: EIGEN_ACTIE[soort] || opnieuw };
+}
+
+/**
+ * Het bijschrift onder het aantal cijfers. Nul cijfers is bij aanvang van een
+ * schooljaar gewoon waar; zonder periode mag er alleen geen scheidingsteken
+ * naar niets blijven hangen.
+ */
+export function cijfersBijschrift(r) {
+  if (r.periode) return `cijfers · ${r.periode}`;
+  return r.cijfers ? 'cijfers · dit schooljaar' : 'cijfers · nog niets ingevoerd';
+}
+
+/** De slotalinea van het gereedscherm. */
+export function gereedSlot(r) {
+  const regels = [];
+  if (r.dagen < r.gevraagd) {
+    regels.push(`Het rooster is ingekort tot ${r.dagen} dagen; meer past er `
+      + 'niet in een programma.');
+  }
+  regels.push(`Op de rekenmachine staat bovenaan "gesynct ${r.tijd}". `
+    + 'Klopt het rooster niet? Controleer of hierboven de juiste naam staat.');
+  return regels.join(' ');
+}
 
 export function percentage(t) {
   if (t.fase !== 'versturen' && t.scherm !== 'fout') return null;
@@ -152,7 +202,9 @@ export function volgende(toestand, g) {
       return t;
     case 'fout':
       t.scherm = 'fout';
+      // bron zegt wat er opnieuw moet als de gebruiker op de knop drukt.
       t.fout = { soort: FOUTEN[g.soort] ? g.soort : 'onbekend',
+        bron: g.bron || null, geopend: Boolean(g.geopend),
         details: g.details || null };
       return t;
     case 'opnieuw':

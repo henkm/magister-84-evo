@@ -1,10 +1,11 @@
 // Dunne schil: leest het token uit de Magister-tab, roept de pure modules aan
 // en rendert de toestand. Neemt zelf geen beslissingen.
-import { bouwModel, genereerMagdata } from './src/genereer.js';
+import { bouwModel, passendeMagdata } from './src/genereer.js';
 import { MagisterFout, maakClient } from './src/magister.js';
 import { lokaleDatum } from './src/rooster.js';
 import { stuurAlles } from './src/send.js';
-import { BEGIN, FOUTEN, percentage, volgende } from './src/stroom.js';
+import { BEGIN, FOUTEN, cijfersBijschrift, foutknop, gereedSlot, percentage,
+  volgende } from './src/stroom.js';
 import { SerieelTransport, bestaandePoort, kiesPoort } from './src/transport.js';
 
 // Demostand: panel.html rechtstreeks in een tab geopend heeft geen chrome.*
@@ -17,9 +18,19 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 let toestand = BEGIN;
 // De kaart die op het keuzescherm is aangeklikt maar nog niet bevestigd.
 let keuze = null;
+// Of er een sync loopt is een feit van deze pagina, geen schermtoestand: na
+// afbreken staat het scherm alweer op klaar terwijl de transfer nog loopt.
+let bezig = false;
+let afbreken = false;
+
+class Afgebroken extends Error {}
+
+function zet(gebeurtenis) {
+  toestand = volgende(toestand, gebeurtenis);
+}
 
 function ga(gebeurtenis) {
-  toestand = volgende(toestand, gebeurtenis);
+  zet(gebeurtenis);
   render(toestand);
 }
 
@@ -54,13 +65,52 @@ async function haalToken() {
   throw new MagisterFout('niet-ingelogd', 'Geen ingelogde Magister-tab gevonden.');
 }
 
+/**
+ * De peildatum voor het cijferoverzicht, of '' als die niet nodig is.
+ * Zonder peildatum geeft Magister voor een afgesloten schooljaar
+ * {"Items": [], "TotalCount": 0} met status 200 terug: geen fout, geen
+ * waarschuwing, gewoon niets. aanmelding() geeft de aanmelding met de laatste
+ * begindatum, en dat is de hele zomer lang het jaar dat net afgesloten is.
+ */
+export function peildatumVoor(aanmelding, nu = new Date()) {
+  const tot = String((aanmelding && aanmelding.tot) || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tot)) return '';
+  return tot < lokaleDatum(nu) ? tot : '';
+}
+
+// Een poort die niet opengaat is geen onbekende fout: het apparaat is weg,
+// staat uit, of wordt vastgehouden door een ander venster of door evosend in
+// een terminal. In al die gevallen helpt hetzelfde scherm.
+async function openTransport(poort) {
+  try {
+    return await SerieelTransport.open(poort);
+  } catch (e) {
+    const fout = new Error('de poort van de rekenmachine ging niet open');
+    fout.soort = 'geen-rekenmachine';
+    throw fout;
+  }
+}
+
+function stopAlsAfgebroken() {
+  if (afbreken) throw new Afgebroken('afgebroken door de gebruiker');
+}
+
+const telLessen = (dagen) => dagen.reduce((n, d) =>
+  n + d[3].filter((r) => r[0] === 'les').length, 0);
+
 function datumOver(dagen) {
   const d = new Date();
   d.setDate(d.getDate() + dagen);
   return lokaleDatum(d);
 }
 
-async function sync() {
+export async function sync() {
+  // Twee syncs tegelijk betekent twee keer open op dezelfde poort. De tweede
+  // krijgt dan een InvalidStateError en meldt "er ging iets mis", terwijl de
+  // eerste er onderdoor gewoon mee doorgaat.
+  if (bezig) return;
+  bezig = true;
+  afbreken = false;
   const begonnen = Date.now();
   ga({ type: 'sync' });
   let transport = null;
@@ -72,21 +122,26 @@ async function sync() {
     const aanmelding = await client.aanmelding(persoonId);
     const afspraken = await client.afspraken(persoonId, lokaleDatum(new Date()),
       datumOver(27));
-    const cijferrijen = await client.cijfers(persoonId, aanmelding.id);
+    const cijferrijen = await client.cijfers(persoonId, aanmelding.id,
+      peildatumVoor(aanmelding));
 
     const model = bouwModel({ afspraken, cijferrijen,
       leerling: toestand.kind ? toestand.kind.naam : '' });
-    const lessen = model.dagen.reduce((n, d) =>
-      n + d[3].filter((r) => r[0] === 'les').length, 0);
     const cijfers = model.vakken.reduce((n, v) => n + v[2].length, 0);
-    ga({ type: 'fase', fase: 'genereren', feiten: { lessen, cijfers } });
+    ga({ type: 'fase', fase: 'genereren',
+      feiten: { lessen: telLessen(model.dagen), cijfers } });
 
-    const magdata = genereerMagdata(model);
+    stopAlsAfgebroken();
+    // Past het niet, dan gaan er dagen van achteren af in plaats van dat de
+    // hele sync afketst; alleen de dagen die het gehaald hebben tellen mee.
+    const { bron: magdata, dagen } = passendeMagdata(model);
+    const erop = model.dagen.slice(0, dagen);
     const app = await (await fetch(chrome.runtime.getURL('calc/MAGISTER.py'))).text();
 
     const poort = await bestaandePoort();
     if (!poort) { ga({ type: 'geenPoort' }); return; }
-    transport = await SerieelTransport.open(poort);
+    stopAlsAfgebroken();
+    transport = await openTransport(poort);
 
     ga({ type: 'fase', fase: 'versturen' });
     // Altijd allebei, MAGISTER eerst: breekt de transfer af tijdens MAGDATA,
@@ -94,24 +149,46 @@ async function sync() {
     await stuurAlles(transport, [
       { naam: 'MAGISTER', bron: app },
       { naam: 'MAGDATA', bron: magdata },
-    ], (gedaan, totaal) => ga({ type: 'voortgang', gedaan, totaal }));
+    ], (gedaan, totaal) => {
+      // De enige plek waar een transfer veilig kan stoppen: op een
+      // pakketgrens, met een bevestigd pakket erachter.
+      stopAlsAfgebroken();
+      ga({ type: 'voortgang', gedaan, totaal });
+    });
 
     const tijd = new Date().toTimeString().slice(0, 5);
     await chrome.storage.local.set({ laatsteSync: tijd });
-    ga({ type: 'gereed', resultaat: { tijd, lessen, cijfers,
+    ga({ type: 'gereed', resultaat: { tijd, cijfers,
+      lessen: telLessen(erop),
       seconden: Math.round((Date.now() - begonnen) / 100) / 10,
-      tot: model.dagen[model.dagen.length - 1][1], periode: model.periode } });
+      tot: erop[erop.length - 1][1], periode: model.periode,
+      dagen, gevraagd: model.dagen.length } });
   } catch (e) {
-    ga({ type: 'fout', soort: soortVoorFout(e) });
+    // Afbreken is geen fout: het scherm staat dan al op klaar.
+    if (!(e instanceof Afgebroken)) {
+      ga({ type: 'fout', soort: soortVoorFout(e), bron: 'sync' });
+    }
   } finally {
     if (transport) await transport.sluit();
+    bezig = false;
   }
 }
 
+// leesPakket stelt de enige diagnose die hier echt helpt; deze tekst is de
+// draad terug naar de foutsoort die dat op het scherm zet.
+const GEEN_ANTWOORD = /geen antwoord van de rekenmachine/;
+
 function soortVoorFout(e) {
-  if (e instanceof MagisterFout) return e.soort;
+  // Een fout die zelf weet wat hij is, wint: MagisterFout, en alles waar
+  // sync() zelf een soort aan hangt.
+  if (e && FOUTEN[e.soort]) return e.soort;
   if (e && e.name === 'NotFoundError') return 'geen-rekenmachine';
   if (e && /65535|past niet/.test(String(e.message))) return 'te-groot';
+  // Geen antwoord voordat er ook maar een pakket bevestigd is: dan heeft de
+  // rekenmachine nooit meegedaan en staat er dus ook niets half op.
+  if (GEEN_ANTWOORD.test(String(e && e.message)) && !toestand.voortgang.gedaan) {
+    return 'geen-rekenmachine';
+  }
   if (toestand.fase === 'versturen') return 'verbinding-afgebroken';
   return 'onbekend';
 }
@@ -248,10 +325,8 @@ function toonGereed(t) {
   $('gereed-lessen').textContent = r.lessen;
   $('gereed-lessen-bij').textContent = `lessen · t/m ${r.tot}`;
   $('gereed-cijfers').textContent = r.cijfers;
-  $('gereed-cijfers-bij').textContent = `cijfers · ${r.periode}`;
-  $('gereed-slot').textContent = `Op de rekenmachine staat bovenaan `
-    + `"gesynct ${r.tijd}". Klopt het rooster niet? Controleer of hierboven de `
-    + 'juiste naam staat.';
+  $('gereed-cijfers-bij').textContent = cijfersBijschrift(r);
+  $('gereed-slot').textContent = gereedSlot(r);
 }
 
 const kB = (n) => (n / 1000).toFixed(1).replace('.', ',');
@@ -261,7 +336,7 @@ function toonFout(t) {
   $('fout-kop').textContent = f.kop;
   $('fout-body').textContent = f.body;
   $('fout-stap').textContent = f.stap;
-  $('knop-fout').textContent = f.knop;
+  $('knop-fout').textContent = foutknop(t).tekst;
   const pct = t.fout.soort === 'verbinding-afgebroken' ? percentage(t) : null;
   $('fout-baan').hidden = pct === null;
   $('fout-baan-tekst').hidden = pct === null;
@@ -306,17 +381,31 @@ async function vraagPoort() {
   }
 }
 
-// De knop op het foutscherm doet wat zijn eigen tekst belooft. FOUTEN kent per
-// soort een andere knoptekst, dus een vaste actie zou daar tegenin gaan:
-// "Ander kind" en "Sluiten" horen geen nieuwe poging te starten.
-const FOUTACTIE = {
-  'niet-ingelogd': openMagister,
-  'geen-rekenmachine': vraagPoort,
-  'geen-aanmelding': naarKindKiezen,
-  'te-groot': () => window.close(),
+// foutknop() in stroom.js kiest welke actie erbij hoort; hier staat alleen
+// hoe die actie eruitziet. "Opnieuw proberen" doet echt opnieuw wat er misging.
+const ACTIES = {
+  magister: () => {
+    openMagister();
+    // De tab staat nu open; zonder deze stap belooft de tekst "kom hier terug"
+    // iets wat de knop niet meer kan waarmaken.
+    ga({ type: 'fout', soort: 'niet-ingelogd', bron: toestand.fout.bron,
+      geopend: true });
+  },
+  poort: vraagPoort,
+  anderKind: naarKindKiezen,
+  sluiten: () => window.close(),
+  // dezelfde grens als knop-sync: in de demostand is er geen chrome.* om mee
+  // te praten
+  herstart: () => { if (inExtensie) start(); },
+  sync: () => { if (inExtensie) sync(); },
 };
 
+let gekoppeld = false;
+
 function koppelKnoppen() {
+  // start() mag na een fout opnieuw draaien; de knoppen blijven dezelfde.
+  if (gekoppeld) return;
+  gekoppeld = true;
   $('knop-doorgaan').addEventListener('click', async () => {
     if (!keuze) return;
     const kind = keuze;
@@ -327,24 +416,31 @@ function koppelKnoppen() {
   $('knop-ander-kind').addEventListener('click', naarKindKiezen);
   $('knop-nog-een-kind').addEventListener('click', naarKindKiezen);
   $('knop-kies-poort').addEventListener('click', vraagPoort);
-  $('knop-afbreken').addEventListener('click', () => ga({ type: 'afbreken' }));
-  $('knop-sluiten').addEventListener('click', () => window.close());
-  $('knop-fout').addEventListener('click', () => {
-    const soort = toestand.fout ? toestand.fout.soort : 'onbekend';
-    const doen = FOUTACTIE[soort];
-    if (doen) doen(); else ga({ type: 'opnieuw' });
+  $('knop-afbreken').addEventListener('click', () => {
+    // De transfer stopt bij het volgende pakket; het scherm wacht daar niet op.
+    afbreken = true;
+    ga({ type: 'afbreken' });
   });
+  $('knop-sluiten').addEventListener('click', () => window.close());
+  $('knop-fout').addEventListener('click', () => ACTIES[foutknop(toestand).actie]());
 }
 
 // --- opstarten -------------------------------------------------------------
 
-async function start() {
+export async function start() {
   koppelKnoppen();
   const bewaard = await chrome.storage.local.get(
     ['kindId', 'kindNaam', 'laatsteSync']);
   let kinderen = [];
   let kind = bewaard.kindId
     ? { id: bewaard.kindId, naam: bewaard.kindNaam } : null;
+  const poortBekend = Boolean(await bestaandePoort());
+  // Wat al bekend is gaat er meteen in: mislukt het hieronder, dan staat het
+  // foutscherm er met het onthouden kind en kan de knop het echt opnieuw
+  // proberen. Nog niet renderen -- anders flitst er een scherm voorbij dat
+  // meteen weer weg is.
+  zet({ type: 'start', kinderen: kind ? [kind] : [], kind,
+    laatsteSync: bewaard.laatsteSync, poortBekend });
   try {
     const { token, tenant } = await haalToken();
     const client = maakClient({ tenant, token });
@@ -359,12 +455,12 @@ async function start() {
       kinderen = [kind];
     }
   } catch (e) {
-    ga({ type: 'fout', soort: soortVoorFout(e) });
+    ga({ type: 'fout', soort: soortVoorFout(e), bron: 'start' });
     return;
   }
   keuze = kind;
   ga({ type: 'start', kinderen, kind, laatsteSync: bewaard.laatsteSync,
-    poortBekend: Boolean(await bestaandePoort()) });
+    poortBekend });
 }
 
 const DEMO = {
@@ -390,7 +486,8 @@ function demo() {
   }
   if (scherm === 'gereed') {
     t = volgende(t, { type: 'gereed', resultaat: { tijd: '09:12', seconden: 3.4,
-      lessen: 42, cijfers: 41, tot: 'vr 11-09', periode: 'P1 · P2' } });
+      lessen: 42, cijfers: 41, tot: 'vr 11-09', periode: 'P1 · P2',
+      dagen: 28, gevraagd: 28 } });
   }
   if (scherm === 'fout') {
     t = volgende(t, { type: 'sync' });
