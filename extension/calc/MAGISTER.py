@@ -9,7 +9,9 @@ except ImportError:      # op de Mac tijdens tests
 
 # --- gemeten op het apparaat, niet aangenomen ---
 ADVANCE = 10
-LINE = 11
+TEKST_H = 16        # hoogte van het letterblok
+TEKST_ANKER = 18    # draw_text(x, y) zet het blok op [y-18, y-3]
+LINE = 16           # kleinste regelafstand zonder overlap
 SCREEN_W = 319
 SCREEN_H = 209
 RIGHT = 313
@@ -129,9 +131,15 @@ def vlak(x, y, w, h, rgb):
     D.fill_rect(x, y, w, h)
 
 
-def tekst(x, y, s, rgb):
+def tekst(x, top, s, rgb):
+    """`top` is de bovenkant van het letterblok, niet de ruwe draw_text-y.
+
+    Op het apparaat gemeten: draw_text(x, y) zet het blok op [y-18, y-3]. De
+    hele app rekent met de bovenkant, want dat is wat je tegen een balk aan
+    uitlijnt.
+    """
     kleur(rgb)
-    D.draw_text(x, y, s)
+    D.draw_text(x, top + TEKST_ANKER, s)
 
 
 def rand(x, y, w, h, rgb):
@@ -141,38 +149,43 @@ def rand(x, y, w, h, rgb):
 
 def kop(titel, rechts=""):
     vlak(0, 0, 319, 22, BLAUW)
-    tekst(6, 6, titel, WIT)
+    tekst(6, 3, titel, WIT)
     if rechts:
-        tekst(right_x(rechts), 6, rechts, WIT)
+        tekst(right_x(rechts), 3, rechts, WIT)
 
 
 def contextbalk(links, rechts="", verouderd=False):
     vlak(0, 22, 319, 17, WIT)
     if links:
-        tekst(6, 25, links, BLAUW)
+        tekst(6, 23, links, BLAUW)
     if verouderd:
         vlak(169, 26, 6, 6, ORANJE)
     if rechts:
         x = 181 if verouderd else right_x(rechts)
-        tekst(x, 25, rechts, GEDEMPT)
+        tekst(x, 23, rechts, GEDEMPT)
     vlak(0, 39, 319, 1, AZUUR)
 
 
 def voetbalk(links, rechts=""):
     vlak(0, 192, 319, 17, BLAUW)
-    tekst(6, 196, links, WIT)
+    tekst(6, 193, links, WIT)
     if rechts:
-        tekst(257, 196, rechts, WIT)
+        tekst(257, 193, rechts, WIT)
+
+
+SCROLL_X = 315
+SCROLL_Y = 42
+SCROLL_H = 150
 
 
 def scrollbar(eerste, zichtbaar, totaal):
     if totaal <= zichtbaar:
         return
     eerste = max(0, min(eerste, totaal - zichtbaar))
-    vlak(311, 42, 4, 138, BAND)
-    hoogte = max(8, 138 * zichtbaar // totaal)
-    top = 42 + (138 - hoogte) * eerste // (totaal - zichtbaar)
-    vlak(311, top, 4, hoogte, AZUUR)
+    vlak(SCROLL_X, SCROLL_Y, 4, SCROLL_H, BAND)
+    hoogte = max(8, SCROLL_H * zichtbaar // totaal)
+    top = SCROLL_Y + (SCROLL_H - hoogte) * eerste // (totaal - zichtbaar)
+    vlak(SCROLL_X, top, 4, hoogte, AZUUR)
 
 
 # --- tekenlaag: de lesregel ---
@@ -282,9 +295,9 @@ def is_onvoldoende(cijfer):
 def mededeling(regel1, regel2=""):
     vlak(24, 96, 271, 40, BAND)
     vlak(24, 96, 4, 40, AZUUR)
-    tekst(40, 105, regel1, DONKER)
+    tekst(40, 102, regel1, DONKER)
     if regel2:
-        tekst(40, 119, regel2, GEDEMPT)
+        tekst(40, 118, regel2, GEDEMPT)
 
 
 def _volgende_lesdag(i):
