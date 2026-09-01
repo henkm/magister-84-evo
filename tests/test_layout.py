@@ -1,4 +1,6 @@
 import MAGISTER as M
+import layoutregels
+
 
 def test_advance_is_measured_not_assumed():
     assert M.ADVANCE == 10
@@ -82,3 +84,102 @@ def test_wrap_result_always_fits():
         result = M.wrap(text, px)
         for line in result:
             assert M.fits(line, px), f"wrap('{text}', {px}) produced line '{line}' ({M.text_width(line)} px) that does not fit in {px} px"
+
+
+def test_de_ankerregel_is_gemeten_niet_gekozen():
+    # Op het apparaat gemeten: draw_text(x, y) zet het letterblok op
+    # [y-18, y-3]. Deze drie getallen veranderen nooit om een test te redden.
+    assert M.TEKST_ANKER == 18
+    assert M.TEKST_H == 16
+    assert M.LINE == 16
+
+
+def test_tekst_zet_het_blok_op_de_gevraagde_bovenkant(tekeningen):
+    M.tekst(5, 40, "A", M.DONKER)
+    assert ("draw_text", 5, 58) == tuple(tekeningen[-1][:3])
+
+
+def test_de_kop_valt_binnen_zijn_eigen_band(tekeningen):
+    M.kop("VANDAAG", "di 01-09")
+    assert ("fill_rect", 0, 0, 319, 22) in tekeningen
+    for c in tekeningen:
+        if c[0] == "draw_text":
+            top = c[2] - M.TEKST_ANKER
+            assert top == 3
+            assert top + M.TEKST_H <= 22
+
+
+def test_de_contextbalk_valt_binnen_zijn_eigen_band(tekeningen):
+    M.contextbalk("6 lessen", "gesynct 07:41")
+    assert ("fill_rect", 0, 22, 319, 17) in tekeningen
+    for c in tekeningen:
+        if c[0] == "draw_text":
+            top = c[2] - M.TEKST_ANKER
+            assert top == 23
+            assert top + M.TEKST_H <= 39
+
+
+def test_de_voetbalk_valt_binnen_het_scherm(tekeningen):
+    M.voetbalk("^v kies  ENTER open", "2 cijf")
+    assert ("fill_rect", 0, 192, 319, 17) in tekeningen
+    for c in tekeningen:
+        if c[0] == "draw_text":
+            top = c[2] - M.TEKST_ANKER
+            assert top == 193
+            assert top + M.TEKST_H <= M.SCREEN_H
+
+
+def test_het_mededelingsblok_zet_twee_regels_op_zestien_pixels(tekeningen):
+    M.mededeling("geen lessen op deze dag", "volgende lesdag: wo 02-09")
+    tops = [c[2] - M.TEKST_ANKER for c in tekeningen if c[0] == "draw_text"]
+    assert tops == [102, 118]
+    assert tops[1] - tops[0] == M.LINE
+
+
+def test_de_scrollbaan_ligt_naast_alles_en_binnen_het_scherm(tekeningen):
+    M.scrollbar(0, 4, 12)
+    for c in tekeningen:
+        if c[0] == "fill_rect":
+            assert c[1] == 315
+            assert c[1] + c[3] <= M.SCREEN_W
+            assert c[2] >= 42
+            assert c[2] + c[4] <= 192
+
+
+def test_het_vaste_frame_voldoet_aan_de_drie_regels(tekeningen):
+    M.vlak(0, 0, 319, 209, M.PAGINA)
+    M.kop("VANDAAG", "di 01-09")
+    M.contextbalk("6 lessen", "gesynct 07:41")
+    M.mededeling("geen lessen op deze dag", "volgende lesdag: wo 02-09")
+    M.voetbalk("^v kies  ENTER open", "2 cijf")
+    layoutregels.binnen_scherm(tekeningen, M)
+    layoutregels.geen_tekstoverlap(tekeningen, M)
+    layoutregels.tekst_op_andere_kleur(tekeningen, M)
+
+
+def test_de_regels_vangen_de_fouten_waarvoor_ze_bedoeld_zijn(tekeningen):
+    # tekst die van het scherm loopt
+    M.tekst(0, 200, "te laag", M.DONKER)
+    try:
+        layoutregels.binnen_scherm(tekeningen, M)
+        raise AssertionError("binnen_scherm liet tekst buiten het scherm door")
+    except AssertionError as e:
+        assert "buiten" in str(e)
+
+    tekeningen.clear()
+    M.tekst(10, 40, "een", M.DONKER)
+    M.tekst(10, 51, "twee", M.DONKER)      # 11 px: overlapt
+    try:
+        layoutregels.geen_tekstoverlap(tekeningen, M)
+        raise AssertionError("geen_tekstoverlap liet overlappende tekst door")
+    except AssertionError as e:
+        assert "overlap" in str(e)
+
+    tekeningen.clear()
+    M.vlak(0, 0, 319, 209, M.WIT)
+    M.tekst(10, 40, "wit op wit", M.WIT)
+    try:
+        layoutregels.tekst_op_andere_kleur(tekeningen, M)
+        raise AssertionError("tekst_op_andere_kleur liet wit op wit door")
+    except AssertionError as e:
+        assert "kleur" in str(e)
