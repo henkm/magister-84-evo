@@ -228,6 +228,17 @@ test('afspraken vragen een datumbereik op', async () => {
     /\/api\/personen\/6002\/afspraken\?van=2026-09-01&tot=2026-09-28$/);
 });
 
+test('actievePerioden gaat als true mee, niet leeg', async () => {
+  // Leeg gaf op een echt account HTTP 400 met de melding
+  // "actievePerioden: The value '' is invalid."
+  const haal = nepHaal([['cijferoverzicht', { Items: [] }]]);
+  const c = maakClient({ tenant: 'school.magister.net', token: 'x', haal });
+  await c.cijfers(6002, 88001);
+  assert.match(haal.opgevraagd[0].url, /[?&]actievePerioden=true(&|$)/);
+  assert.ok(!haal.opgevraagd[0].url.includes('actievePerioden=&'),
+    'een lege waarde is precies wat Magister weigert');
+});
+
 test('peildatum gaat alleen mee als hij gegeven is', async () => {
   const haal = nepHaal([['cijferoverzicht', { Items: [] }]]);
   const c = maakClient({ tenant: 'school.magister.net', token: 'x', haal });

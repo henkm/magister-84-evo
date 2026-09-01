@@ -145,7 +145,12 @@ export function maakClient({ tenant, token, haal = globalThis.fetch }) {
     async cijfers(persoonId, aanmeldingId, peildatum) {
       let pad = `/api/personen/${persoonId}/aanmeldingen/${aanmeldingId}`
         + '/cijfers/cijferoverzichtvooraanmelding'
-        + '?actievePerioden=&alleenBerekendeKolommen=false&alleenPTAKolommen=false';
+        // actievePerioden=true is wat Magister zelf meestuurt. Leeg laten geeft
+        // HTTP 400: "The value '' is invalid." Met true krijg je de perioden
+        // die op de peildatum lopen - dezelfde die je op de site ziet, dus de
+        // rekenmachine toont hetzelfde als de website.
+        + '?actievePerioden=true&alleenBerekendeKolommen=false'
+        + '&alleenPTAKolommen=false';
       if (peildatum) pad += `&peildatum=${peildatum}`;
       return rijen(await get(pad));
     },
