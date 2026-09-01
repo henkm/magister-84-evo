@@ -196,3 +196,53 @@ test('ook een verlopen sessie noemt de call waarop het misging', async () => {
   assert.equal(dom.el('fout-techniek').hidden, false);
   assert.match(dom.tekst('fout-techniek'), /HTTP 401 op \/api\/account/);
 });
+
+// --- koppelen: het filter mag de rekenmachine niet wegfilteren -------------
+
+test('de eerste keuze gaat met filter, de tweede zonder', async () => {
+  // Geen enkele poort: de sync loopt tot het koppelscherm en de keuze mislukt
+  // daarna met NotFoundError -- precies wat Chrome geeft als de lijst leeg is
+  // of de gebruiker het venster sluit.
+  const { omgeving, dom } = await paneelKlaar({ poort: null });
+  dom.knop('knop-sync').klik();
+  await totScherm(dom, 'koppelen');
+
+  dom.knop('knop-kies-poort').klik();
+  await totScherm(dom, 'fout');
+  assert.equal(dom.tekst('fout-kop'), 'Geen rekenmachine gevonden');
+  assert.deepEqual(omgeving.keuzes[0], { filters: [{ usbVendorId: 0x0451,
+    usbProductId: 0xE018 }] }, 'de eerste poging hoort gefilterd te zijn');
+  // Zonder de naam van de fout op het scherm is een lege lijst niet te
+  // onderscheiden van een pagina die Web Serial helemaal niet heeft.
+  assert.match(dom.tekst('fout-techniek'), /NotFoundError/);
+  assert.equal(dom.el('fout-techniek').hidden, false);
+  assert.match(dom.tekst('fout-techniek'), /alle seriele poorten/);
+
+  dom.knop('knop-fout').klik();
+  for (let i = 0; i < 10; i++) await adem();
+  assert.equal(omgeving.keuzes.length, 2);
+  assert.deepEqual(omgeving.keuzes[1], {}, 'de tweede poging hoort ongefilterd');
+  assert.doesNotMatch(dom.tekst('fout-techniek'), /alle seriele poorten/,
+    'na een ongefilterde poging is er niets ruimers meer te proberen');
+});
+
+test('een geslaagde keuze brengt je terug op het klaarscherm', async () => {
+  const { omgeving, dom } = await paneelKlaar({ poort: null });
+  dom.knop('knop-sync').klik();
+  await totScherm(dom, 'koppelen');
+  omgeving.poort = nepPoort();               // de gebruiker sluit hem aan
+  dom.knop('knop-kies-poort').klik();
+  await totScherm(dom, 'klaar');
+});
+
+test('een eerder toegestane vreemde poort wint niet van de rekenmachine', async () => {
+  // Wie ooit een Arduino of een bluetoothpoort heeft toegestaan, houdt die in
+  // navigator.serial.getPorts(). De eerste pakken is dan de verkeerde.
+  const vreemd = nepPoort({ info: { usbVendorId: 0x2341, usbProductId: 0x0043 } });
+  const echt = nepPoort();
+  const { dom } = await paneelKlaar({ poorten: [vreemd, echt] });
+  dom.knop('knop-sync').klik();
+  await totScherm(dom, 'gereed');
+  assert.equal(vreemd.aantalOpen, 0, 'de vreemde poort hoort dicht te blijven');
+  assert.ok(echt.geschreven.length > 8, 'er is niets naar de TI gegaan');
+});

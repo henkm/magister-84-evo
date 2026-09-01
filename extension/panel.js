@@ -190,7 +190,13 @@ function technischeDetails(e) {
     const kop = d.status ? `HTTP ${d.status} op ${d.pad}` : `mislukt op ${d.pad}`;
     return d.uitleg ? `${kop}\n${d.uitleg}` : kop;
   }
-  return e.message ? String(e.message).slice(0, 120) : null;
+  if (!e.message) return null;
+  // De soort fout staat bij een DOMException in de naam en niet in de tekst:
+  // "NotFoundError" (niets gekozen of een lege lijst) is iets heel anders dan
+  // "SecurityError" (de pagina mag het niet vragen), terwijl de tekst erachter
+  // in beide gevallen even weinig zegt.
+  const naam = e.name && e.name !== 'Error' ? `${e.name}: ` : '';
+  return (naam + String(e.message)).slice(0, 160);
 }
 
 function soortVoorFout(e) {
@@ -387,15 +393,27 @@ function openMagister() {
 
 // Moet uit een klik komen: navigator.serial.requestPort eist een gebaar van de
 // gebruiker. Daarom staat er voor de aanroep niets dat op iets wacht.
+// Na een mislukte poging met filter gaat de volgende poging zonder. Zie
+// kiesPoort(): een lege lijst kan ook betekenen dat Chrome de USB-nummers van
+// deze poort niet kent, en dan is de rekenmachine er wel maar het filter blind.
+let filterAf = false;
+
 async function vraagPoort() {
   if (!inExtensie) return;
+  const alles = filterAf;
   try {
-    await kiesPoort();
+    await kiesPoort({ alles });
+    filterAf = false;
     ga({ type: 'poort' });
   } catch (e) {
     // Het venster van Chrome is gesloten zonder te kiezen, of er stond geen
     // apparaat in de lijst. Dezelfde uitleg, met een knop die het opnieuw doet.
-    ga({ type: 'fout', soort: 'geen-rekenmachine' });
+    filterAf = !alles;
+    const regel = technischeDetails(e);
+    ga({ type: 'fout', soort: 'geen-rekenmachine', bron: 'poort',
+      details: filterAf
+        ? `${regel}\nDe volgende poging toont alle seriele poorten.`
+        : regel });
   }
 }
 

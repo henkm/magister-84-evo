@@ -9,19 +9,43 @@ export function serieelBeschikbaar() {
   return typeof navigator !== 'undefined' && 'serial' in navigator;
 }
 
-/** Vraagt de gebruiker een poort te kiezen. Moet uit een klik komen. */
-export async function kiesPoort() {
-  if (!serieelBeschikbaar()) {
-    throw new Error('deze browser kent Web Serial niet');
-  }
-  return navigator.serial.requestPort({ filters: [FILTER] });
+/** Hoort deze poort bij een TI-84 Evo-T? */
+export function isRekenmachine(poort) {
+  if (!poort || typeof poort.getInfo !== 'function') return false;
+  let info;
+  try { info = poort.getInfo(); } catch (e) { return false; }
+  return Boolean(info) && info.usbVendorId === FILTER.usbVendorId
+    && info.usbProductId === FILTER.usbProductId;
 }
 
-/** Een eerder toegestane poort, of null. */
+/**
+ * Vraagt de gebruiker een poort te kiezen. Moet uit een klik komen.
+ *
+ * alles:true laat het filter weg. Het filter is de goede eerste poging -- dan
+ * staat er precies een apparaat in de lijst en valt er niets te kiezen -- maar
+ * als Chrome de USB-nummers van een poort niet kent, is die lijst leeg en is
+ * er zonder filter niets aan de hand. Het verschil tussen "hij staat er niet
+ * in" en "hij bestaat niet" is met een filter niet te zien.
+ */
+export async function kiesPoort({ alles = false } = {}) {
+  if (!serieelBeschikbaar()) {
+    const fout = new Error('deze pagina heeft geen Web Serial');
+    fout.name = 'GeenWebSerial';
+    throw fout;
+  }
+  return navigator.serial.requestPort(alles ? {} : { filters: [FILTER] });
+}
+
+/**
+ * Een eerder toegestane poort, of null. Een poort die aan het filter voldoet
+ * gaat voor: wie ooit een andere seriele poort heeft toegestaan (een Arduino,
+ * een bluetoothpoort) zou anders die poort opengetrokken krijgen en pas bij
+ * het eerste pakket merken dat er geen rekenmachine aan hangt.
+ */
 export async function bestaandePoort() {
   if (!serieelBeschikbaar()) return null;
   const poorten = await navigator.serial.getPorts();
-  return poorten.length ? poorten[0] : null;
+  return poorten.find(isRekenmachine) || poorten[0] || null;
 }
 
 export class SerieelTransport {

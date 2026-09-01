@@ -96,12 +96,12 @@ export async function totScherm(dom, naam, beurten = 5000) {
  * faalOpen is een poort die al door iets anders wordt vastgehouden.
  */
 export function nepPoort({ antwoordt = true, faalOpen = null,
-  opSchrijf = null } = {}) {
+  opSchrijf = null, info = { usbVendorId: 0x0451, usbProductId: 0xE018 } } = {}) {
   const geschreven = [];
   const wachtrij = [];
   let wachtende = null;
   let seq = 0;
-  const poort = { aantalOpen: 0, dicht: false, geschreven };
+  const poort = { aantalOpen: 0, dicht: false, geschreven, getInfo: () => info };
 
   function lever(bytes) {
     if (wachtende) {
@@ -171,11 +171,16 @@ export function nepOmgeving({
   afspraken = [AFSPRAAK],
   cijfers = [CIJFER],
   poort = nepPoort(),
+  poorten = null,
+  keuzeFout = null,
 } = {}) {
   const dom = nepDom();
   const opgevraagd = [];
   const geopendeTabs = [];
-  const omgeving = { dom, opgevraagd, geopendeTabs, opgeslagen, poort, status };
+  // keuzes houdt bij waarmee requestPort is aangeroepen: met of zonder filter.
+  const keuzes = [];
+  const omgeving = { dom, opgevraagd, geopendeTabs, opgeslagen, poort, poorten,
+    status, keuzes, keuzeFout };
 
   const antwoord = (json, code = 200) => ({
     status: code, ok: code < 400, json: async () => json,
@@ -232,9 +237,19 @@ export async function laadPaneel(omgeving) {
     configurable: true,
     value: {
       serial: {
-        getPorts: async () => (omgeving.poort ? [omgeving.poort] : []),
-        requestPort: async () => {
-          if (!omgeving.poort) throw new Error('niets gekozen');
+        getPorts: async () => (Array.isArray(omgeving.poorten)
+          ? omgeving.poorten
+          : (omgeving.poort ? [omgeving.poort] : [])),
+        requestPort: async (opties) => {
+          omgeving.keuzes.push(opties);
+          const fout = omgeving.keuzeFout
+            && omgeving.keuzeFout(omgeving.keuzes.length - 1, opties);
+          if (fout) throw fout;
+          if (!omgeving.poort) {
+            const leeg = new Error('No port selected by the user.');
+            leeg.name = 'NotFoundError';
+            throw leeg;
+          }
           return omgeving.poort;
         },
       },
