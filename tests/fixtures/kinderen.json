@@ -1,0 +1,9 @@
+{
+  "Items": [
+    { "Id": 6002, "Roepnaam": "Fenna", "Achternaam": "de Vries",
+      "Stamnummer": 12345 },
+    { "Id": 6003, "Roepnaam": "Sem", "Achternaam": "de Vries",
+      "Stamnummer": 12346 }
+  ],
+  "TotalCount": 2
+}

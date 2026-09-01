@@ -1,0 +1,4 @@
+{
+  "Persoon": { "Id": 6002, "Roepnaam": "Fenna", "Achternaam": "de Vries" },
+  "Groep": [{ "Naam": "Leerling", "Id": 1 }]
+}

@@ -1,0 +1,11 @@
+{
+  "items": [
+    { "id": 88001, "studie": { "code": "4H", "omschrijving": "4 havo" },
+      "begin": "2026-08-24", "einde": "2027-07-16",
+      "lesperiode": "2026/2027", "profiel": "N&G" },
+    { "id": 79004, "studie": { "code": "3H", "omschrijving": "3 havo" },
+      "begin": "2025-08-25", "einde": "2026-07-17",
+      "lesperiode": "2025/2026", "profiel": "" }
+  ],
+  "totalCount": 2
+}
