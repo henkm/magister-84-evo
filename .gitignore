@@ -2,3 +2,6 @@ bin/
 __pycache__/
 .env
 node_modules/
+
+# worktrees van review-agents (harness-scratch)
+.claude/worktrees/

@@ -8,15 +8,26 @@ import { bouwPayload, transferUrl, valideerNaam } from './payload.js';
 export const CHUNK = 2000;
 
 const TEKST = new TextEncoder();
-// latin1, niet UTF-8: tools/evosend/port.py leest de fouttekst van de
-// rekenmachine met .decode("latin1"), byte voor byte. Met de standaard
-// UTF-8-decoder wordt elke niet-ASCII byte een vervangingsteken.
-const LEES = new TextDecoder('latin1');
+
+// tools/evosend/port.py leest de fouttekst van de rekenmachine met
+// .decode("latin1"): byte n wordt codepunt n, alle 256 bytes.
+//
+// Bewust GEEN TextDecoder: de labelnaam "latin1" is per WHATWG een alias voor
+// windows-1252, niet voor ISO 8859-1. Gemeten: Node 22 beeldt daarmee toevallig
+// alle 256 bytes een-op-een af, maar Chrome 152 wijkt af voor 27 bytes in
+// 0x80-0x9F (0x80 wordt het euroteken, 0x92 een aanhalingsteken). De extensie
+// draait in Chrome en de tests in Node, dus die afwijking zou geen enkele test
+// ooit te zien krijgen. Deze regel doet wat er staat, overal hetzelfde.
+function lees_latin1(bytes) {
+  let uit = '';
+  for (const b of bytes) uit += String.fromCharCode(b);
+  return uit;
+}
 
 async function verwachtAck(transport, timeoutMs = 8000) {
   const { type, data } = await transport.leesPakket(timeoutMs);
   if (type === 'E') {
-    throw new Error('de rekenmachine meldt een fout: ' + LEES.decode(data));
+    throw new Error('de rekenmachine meldt een fout: ' + lees_latin1(data));
   }
   if (type !== 'Y') {
     throw new Error(`verwachtte een ACK (Y) van de rekenmachine, kreeg "${type}"`);

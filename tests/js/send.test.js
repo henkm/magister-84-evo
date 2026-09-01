@@ -120,6 +120,24 @@ test('een fouttekst met niet-ASCII bytes blijft leesbaar', async () => {
   });
 });
 
+test('elke byte in een fouttekst wordt zijn eigen codepunt', async () => {
+  // Het contract met tools/evosend/port.py is byte n -> codepunt n, voor alle
+  // 256 bytes. Deze test legt dat vast; hij zou in Node ook slagen met
+  // TextDecoder('latin1'), maar in Chrome niet, en daar draait de extensie.
+  const alle = Uint8Array.from({ length: 224 }, (_, i) => i + 32);
+  const t = new NepTransport((i) => i === 0
+    ? encodePacket(0, 'E', alle)
+    : encodePacket(0, 'Y'));
+  await assert.rejects(() => stuurPython(t, 'MAGDATA', 'x = 1\n'), (e) => {
+    const staart = e.message.slice(-alle.length);
+    assert.equal(staart.length, alle.length);
+    for (let i = 0; i < alle.length; i++) {
+      assert.equal(staart.charCodeAt(i), alle[i], `byte ${alle[i]}`);
+    }
+    return true;
+  });
+});
+
 test('een E-pakket op het A-pakket wordt ook opgemerkt', async () => {
   // Het derde schrijven (index 2) is het A-pakket met de payloadlengte.
   // Zonder de ack daarna zou deze fout pas bij het volgende pakket opvallen,
