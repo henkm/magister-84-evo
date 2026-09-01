@@ -569,6 +569,30 @@ def _toetsen(*codes):
         return rij.pop(0)
     return volgende
 
+def _beeldjes(calls):
+    """Splitst de opnames in beeldjes: alles tot aan elke show_draw.
+
+    Geeft (beeldjes, rest) terug; `rest` is het tekenwerk na de laatste
+    show_draw en hoort leeg te zijn, want main() flusht elk beeld voordat
+    hij op een toets wacht.
+    """
+    beeldjes, huidig = [], []
+    for c in calls:
+        if c[0] == "show_draw":
+            beeldjes.append(huidig)
+            huidig = []
+        else:
+            huidig.append(c)
+    return beeldjes, huidig
+
+def _titels(beeldjes):
+    """De koptitel (draw_text op 6,6) van elk beeldje, in volgorde."""
+    uit = []
+    for b in beeldjes:
+        kop = [c[3] for c in b if c[0] == "draw_text" and c[1] == 6 and c[2] == 6]
+        uit.append(kop[0] if kop else None)
+    return uit
+
 def test_main_returns_immediately_when_there_is_no_data(tekeningen):
     origineel_dagen, origineel_key = M.DAGEN, M.wait_key
     M.DAGEN = []
@@ -591,10 +615,12 @@ def test_main_starts_on_the_dag_screen_and_clear_exits(tekeningen):
 
 def test_main_right_arrow_clamps_at_the_last_day(tekeningen):
     # DAGEN heeft 3 dagen (index 0..2); vijf keer rechts moet blijven
-    # steken op de laatste (het weekend, dag-index 2).
+    # steken op de laatste (het weekend, dag-index 2). Twee keer CLEAR:
+    # de eerste springt vanaf het weekend terug naar vandaag, de tweede
+    # sluit de app af.
     origineel = M.wait_key
     M.wait_key = _toetsen(M.K_RECHTS, M.K_RECHTS, M.K_RECHTS,
-                          M.K_RECHTS, M.K_RECHTS, M.K_CLEAR)
+                          M.K_RECHTS, M.K_RECHTS, M.K_CLEAR, M.K_CLEAR)
     try:
         M.main()
     finally:
@@ -602,10 +628,11 @@ def test_main_right_arrow_clamps_at_the_last_day(tekeningen):
     assert ("draw_text", 6, 25, "weekend") in teksten(tekeningen)
 
 def test_main_enter_on_a_lesson_opens_detail_and_clear_returns_to_dag(tekeningen):
-    # selectie 0 -> 2 (twee keer omlaag) landt op de natuurkundeles;
-    # ENTER opent het lesdetail, CLEAR gaat terug, CLEAR sluit af.
+    # selectie 0 -> 2 (één keer omlaag, want rij 1 is een tussenuur en die
+    # wordt overgeslagen) landt op de natuurkundeles; ENTER opent het
+    # lesdetail, CLEAR gaat terug, CLEAR sluit af.
     origineel = M.wait_key
-    M.wait_key = _toetsen(M.K_OMLAAG, M.K_OMLAAG, M.K_ENTER,
+    M.wait_key = _toetsen(M.K_OMLAAG, M.K_ENTER,
                           M.K_CLEAR, M.K_CLEAR)
     try:
         M.main()
@@ -613,15 +640,38 @@ def test_main_enter_on_a_lesson_opens_detail_and_clear_returns_to_dag(tekeningen
         M.wait_key = origineel
     assert ("draw_text", 54, 31, "natuurkunde") in teksten(tekeningen)
 
-def test_main_enter_on_a_gap_row_does_nothing(tekeningen):
-    # rij-index 1 op dag 0 is een tussenuur ("gat"); ENTER daarop mag geen
-    # lesdetail openen.
+def test_main_selection_never_lands_on_a_gap_row(tekeningen):
+    # rij-index 1 op dag 0 is een tussenuur ("gat"). gatregel() tekent geen
+    # selectiekader, dus zou de selectie daarop landen dan verdwijnt de
+    # cursor van het scherm. Na elke pijl omlaag hoort er dus nog steeds
+    # een draw_rect (het selectiekader) op het beeld te staan - ook meteen
+    # na de eerste, waar de oude code op het tussenuur bleef staan.
     origineel = M.wait_key
-    M.wait_key = _toetsen(M.K_OMLAAG, M.K_ENTER, M.K_CLEAR)
+    M.wait_key = _toetsen(M.K_OMLAAG, M.K_OMLAAG, M.K_OMLAAG,
+                          M.K_OMLAAG, M.K_OMLAAG, M.K_CLEAR)
     try:
         M.main()
     finally:
         M.wait_key = origineel
+    beeldjes, _ = _beeldjes(tekeningen)
+    assert len(beeldjes) == 6
+    for n, b in enumerate(beeldjes):
+        assert any(c[0] == "draw_rect" for c in b), \
+            "beeldje %d heeft geen selectiekader" % n
+
+def test_main_enter_on_a_gap_row_does_nothing(tekeningen):
+    # De pijlen kunnen niet meer op een tussenuur landen, dus deze bewaking
+    # wordt rechtstreeks getest: ENTER op een gat-rij opent geen lesdetail.
+    # De vangrail blijft staan voor data waarin de eerste rij een gat is.
+    origineel_dagen, origineel_key = M.DAGEN, M.wait_key
+    M.DAGEN = [("2026-09-01", "di 01-09", "vandaag", [
+        ("gat", "09:00", "09:45", "", "", "", "", "normaal", "", "", ""),
+    ])]
+    M.wait_key = _toetsen(M.K_ENTER, M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.DAGEN, M.wait_key = origineel_dagen, origineel_key
     labels = [c[3] for c in teksten(tekeningen)]
     assert not any(s.startswith("LESUUR") for s in labels)
 
@@ -635,13 +685,14 @@ def test_main_key_2_and_enter_walk_to_cijfers_and_clear_chain_returns_to_dag(tek
         M.main()
     finally:
         M.wait_key = origineel
-    t = teksten(tekeningen)
-    assert ("draw_text", 6, 6, "VAKKEN") in t
-    assert ("draw_text", 6, 6, "WISKUNDE B") in t
-    # de laatste van elk paar getekende titels bevestigt de eindtoestand:
-    # het scherm eindigt weer op de dag-lijst.
-    namen = [c[3] for c in t if c[3] in ("VANDAAG", "VAKKEN")]
-    assert namen[-1] == "VANDAAG"
+    # Niet alleen "elk scherm is een keer getekend": de volgorde van de
+    # beeldjes is de test. Zou de CLEAR-keten vanaf cijfers rechtstreeks
+    # naar dag springen in plaats van via vakken, dan komen dezelfde
+    # schermen voorbij maar in een andere volgorde - en dat moet rood zijn.
+    beeldjes, rest = _beeldjes(tekeningen)
+    assert _titels(beeldjes) == ["VANDAAG", "VAKKEN", "WISKUNDE B",
+                                 "VAKKEN", "VANDAAG"]
+    assert rest == [], "na het laatste beeld is er nog getekend zonder flush"
 
 def test_main_key_1_jumps_directly_back_to_dag(tekeningen):
     origineel = M.wait_key
@@ -653,3 +704,153 @@ def test_main_key_1_jumps_directly_back_to_dag(tekeningen):
     t = teksten(tekeningen)
     namen = [c[3] for c in t if c[3] in ("VANDAAG", "VAKKEN")]
     assert namen[-1] == "VANDAAG"
+
+def test_main_detail_down_arrow_scrolls_the_homework(tekeningen):
+    # Het detailscherm wordt getekend als toon_lesdetail(dag, selectie,
+    # scroll): de pijlen horen dus scroll te verzetten en niet vak_scroll,
+    # anders is huiswerk voorbij regel 5 onbereikbaar.
+    origineel_dagen, origineel_key = M.DAGEN, M.wait_key
+    lang_huiswerk = ("lees hoofdstuk 1 tot en met 9 helemaal door en maak "
+                     "alle opgaven van de herhalingstoets grondig ") * 3
+    rij = ("les", "10:30", "12:00", "3-4", "natuurkunde", "206", "Bos (BOS)",
+           "normaal", "HW", lang_huiswerk, "")
+    M.DAGEN = [("2026-09-01", "di 01-09", "vandaag", [rij])]
+    alle_regels = M.wrap(lang_huiswerk, 307)
+    M.wait_key = _toetsen(M.K_ENTER, M.K_OMLAAG, M.K_OMHOOG,
+                          M.K_CLEAR, M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.DAGEN, M.wait_key = origineel_dagen, origineel_key
+
+    assert len(alle_regels) > 6, "testtekst moet meer dan 6 regels wikkelen"
+    beeldjes, _ = _beeldjes(tekeningen)
+    # dag, detail(scroll 0), detail(scroll 1), detail(scroll 0), dag
+    assert len(beeldjes) == 5
+    lichaam = [[c[3] for c in b
+                if c[0] == "draw_text" and c[1] == 6 and 101 <= c[2] <= 149]
+               for b in beeldjes]
+    assert lichaam[1] == alle_regels[0:5]
+    assert lichaam[2] == alle_regels[1:6], "omlaag scrolt het huiswerk niet"
+    assert alle_regels[5] not in lichaam[1], "regel 6 was al zonder scrollen zichtbaar"
+    assert lichaam[3] == alle_regels[0:5], "omhoog scrolt niet terug"
+
+def test_main_detail_arrows_walk_between_lessons(tekeningen):
+    # De voetbalk van het detailscherm belooft "<> les": links en rechts
+    # bladeren door de lessen van dezelfde dag, slaan het tussenuur over en
+    # blijven staan op de eerste en de laatste les.
+    origineel = M.wait_key
+    M.wait_key = _toetsen(M.K_ENTER,
+                          M.K_RECHTS, M.K_LINKS,      # heen en weer terug
+                          M.K_LINKS,                  # klemt op de eerste les
+                          M.K_RECHTS, M.K_RECHTS, M.K_RECHTS, M.K_RECHTS,
+                          M.K_RECHTS,                 # klemt op de laatste les
+                          M.K_CLEAR, M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.wait_key = origineel
+
+    beeldjes, _ = _beeldjes(tekeningen)
+    vakken_per_beeld = []
+    for b in beeldjes:
+        n = [c[3] for c in b if c[0] == "draw_text" and c[1] == 54 and c[2] == 31]
+        vakken_per_beeld.append(n[0] if n else None)
+    # beeld 0 en het laatste zijn het dagscherm; daartussen de lesdetails
+    assert vakken_per_beeld == [
+        None,                                       # dagscherm
+        "wiskunde B", "natuurkunde",                # rechts, en links terug
+        "wiskunde B", "wiskunde B",                 # links klemt op de eerste
+        "natuurkunde", "nederlands", "engels", "geschiedenis",
+        "geschiedenis",                             # rechts klemt op de laatste
+        None,                                       # weer het dagscherm
+    ]
+    # het tussenuur (rij 1) heeft een leeg lesuur en een lege vaknaam: daar
+    # mag geen enkel detailbeeld op zijn beland
+    assert "LESUUR " not in _titels(beeldjes)
+    assert "" not in vakken_per_beeld
+
+def test_main_clear_on_another_day_returns_to_today_before_exiting(tekeningen):
+    # Elke voetbalk buiten vandaag belooft "CLR vandaag". Eén keer rechts,
+    # dan CLEAR: terug naar vandaag, niet afsluiten. Pas de tweede CLEAR
+    # (vanaf vandaag) sluit de app af.
+    origineel = M.wait_key
+    M.wait_key = _toetsen(M.K_RECHTS, M.K_CLEAR, M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.wait_key = origineel
+
+    beeldjes, rest = _beeldjes(tekeningen)
+    assert _titels(beeldjes) == ["VANDAAG", "ROOSTER", "VANDAAG"], \
+        "CLEAR op een andere dag moet eerst naar vandaag, niet afsluiten"
+    assert rest == []
+
+def test_main_clear_returning_to_today_also_resets_the_selection(tekeningen):
+    # Dag 1 heeft twee lessen; staat de selectie daar op rij 1, dan hoort
+    # de sprong terug naar vandaag weer op de eerste lesregel te beginnen.
+    origineel = M.wait_key
+    M.wait_key = _toetsen(M.K_RECHTS, M.K_OMLAAG, M.K_CLEAR, M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.wait_key = origineel
+    beeldjes, _ = _beeldjes(tekeningen)
+    laatste = beeldjes[-1]
+    kaders = [c for c in laatste if c[0] == "draw_rect"]
+    assert kaders == [("draw_rect", 0, M.LIJST_Y, 317, 24)]
+
+def test_main_key_2_resets_the_subject_selection(tekeningen):
+    # 2 is de directe sprong naar de vakkenlijst; die begint altijd bovenaan,
+    # ook als je er de vorige keer doorheen gescrold was.
+    origineel = M.wait_key
+    M.wait_key = _toetsen(M.K_2, M.K_OMLAAG, M.K_1, M.K_2, M.K_CLEAR, M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.wait_key = origineel
+
+    beeldjes, _ = _beeldjes(tekeningen)
+    assert _titels(beeldjes) == ["VANDAAG", "VAKKEN", "VAKKEN", "VANDAAG",
+                                 "VAKKEN", "VANDAAG"]
+    # beeld 2: na omlaag staat de selectie op de tweede vakregel (pitch 24)
+    assert ("draw_rect", 0, M.LIJST_Y + 24, 317, 20) in beeldjes[2]
+    # beeld 4: na 1 en opnieuw 2 staat hij weer op de eerste
+    assert ("draw_rect", 0, M.LIJST_Y, 317, 20) in beeldjes[4]
+
+def test_main_flushes_every_frame_exactly_once(tekeningen):
+    # main() bezit de presentatie: elke tekenfunctie tekent alleen, main()
+    # flusht. Elk beeldje hoort dus precies één show_draw te hebben en geen
+    # enkel beeldje mag leeg zijn.
+    origineel = M.wait_key
+    M.wait_key = _toetsen(M.K_2, M.K_ENTER, M.K_1, M.K_OMLAAG, M.K_ENTER,
+                          M.K_RECHTS, M.K_CLEAR, M.K_RECHTS, M.K_CLEAR,
+                          M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.wait_key = origineel
+
+    beeldjes, rest = _beeldjes(tekeningen)
+    flushes = [c for c in tekeningen if c[0] == "show_draw"]
+    assert len(beeldjes) == 10 == len(flushes), "één flush per toetsdruk"
+    assert rest == [], "er is getekend na de laatste flush"
+    for n, b in enumerate(beeldjes):
+        assert b, "beeldje %d tekent niets" % n
+        assert any(c[0] == "draw_text" for c in b)
+
+def test_missing_data_screen_does_not_flush_itself(tekeningen):
+    # toon_geen_data() is een tekenfunctie als alle andere: geen show_draw.
+    M.toon_geen_data()
+    assert not [c for c in tekeningen if c[0] == "show_draw"]
+
+def test_main_flushes_the_missing_data_screen_once(tekeningen):
+    origineel_dagen, origineel_key = M.DAGEN, M.wait_key
+    M.DAGEN = []
+    M.wait_key = _toetsen(0)
+    try:
+        M.main()
+    finally:
+        M.DAGEN, M.wait_key = origineel_dagen, origineel_key
+    beeldjes, rest = _beeldjes(tekeningen)
+    assert len(beeldjes) == 1 and beeldjes[0] and rest == []

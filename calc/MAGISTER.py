@@ -485,32 +485,59 @@ def toon_geen_data():
     mededeling("geen gegevens gevonden",
                "sync opnieuw vanaf de pc")
     voetbalk("CLEAR sluiten")
-    D.show_draw()
 
 
 # --- hoofdlus ---
 
-# Toetscodes: NIET gemeten. Dit zijn de gok-waarden uit de taak-10-briefing;
-# de controller meet de echte codes op het apparaat (stap 4 van de briefing,
-# met KEYS via evosend) en vervangt deze acht getallen daarna.
+# Toetscodes: gemeten op het apparaat op 2026-09-01 met het KEYS-probe-
+# programma (elke toets ingedrukt, de code afgelezen). Vier van de acht
+# eerdere gok-waarden bleken fout - ENTER, 1 en 2 het verst ernaast - dus
+# gok hier niets bij: een nieuwe toets meet je eerst met KEYS.
 K_OMHOOG = 25
 K_OMLAAG = 34
 K_LINKS = 24
 K_RECHTS = 26
-K_ENTER = 5
+K_ENTER = 105
 K_CLEAR = 45
-K_1 = 143
-K_2 = 144
+K_1 = 92
+K_2 = 93
+
+
+def volgende_les(rijen, vanaf, richting):
+    """Index van de eerste lesregel vanaf `vanaf`, zoekend in `richting`.
+
+    `vanaf` telt zelf mee; `richting` is +1 (omlaag) of -1 (omhoog).
+    Tussenuren worden overgeslagen, want gatregel() tekent geen
+    selectiekader: een selectie op een tussenuur laat de cursor van het
+    scherm verdwijnen. Is er in die richting geen lesregel meer, dan is het
+    antwoord -1 en laat de aanroeper de selectie staan waar hij stond.
+    """
+    i = vanaf
+    while 0 <= i < len(rijen):
+        if rijen[i][L_SOORT] == "les":
+            return i
+        i += richting
+    return -1
+
+
+def eerste_les(rijen):
+    """De eerste lesregel van een dag; 0 bij een dag zonder lesregels.
+
+    Een dag zonder lessen tekent zijn eigen mededeling-scherm, dus daar doet
+    de selectie er niet toe - hij mag alleen niet buiten de rij wijzen.
+    """
+    return max(0, volgende_les(rijen, 0, 1))
 
 
 def main():
     if not data_ok():
         toon_geen_data()
+        D.show_draw()
         wait_key()
         return
 
     scherm = "dag"
-    dag, selectie, scroll = 0, 0, 0
+    dag, selectie, scroll = 0, eerste_les(DAGEN[0][3]), 0
     vak, vak_scroll = 0, 0
 
     while True:
@@ -529,37 +556,67 @@ def main():
 
         if k == K_CLEAR:
             if scherm == "dag":
-                return
-            scherm = "dag" if scherm == "detail" else (
-                "vakken" if scherm == "cijfers" else "dag")
-            scroll, vak_scroll = 0, 0
+                # Elke voetbalk buiten vandaag belooft "CLR vandaag": van een
+                # andere dag springt CLEAR eerst terug naar vandaag (dag 0),
+                # en pas vanaf vandaag sluit hij de app af.
+                if dag == 0:
+                    return
+                dag, scroll = 0, 0
+                selectie = eerste_les(DAGEN[0][3])
+            elif scherm == "cijfers":
+                scherm, vak_scroll = "vakken", 0
+            else:                       # detail en vakken vallen terug op dag
+                scherm, scroll, vak_scroll = "dag", 0, 0
         elif k == K_1:
             scherm, scroll = "dag", 0
         elif k == K_2:
             scherm, vak, vak_scroll = "vakken", 0, 0
-        elif k == K_LINKS and scherm == "dag":
-            dag = max(0, dag - 1)
-            selectie, scroll = 0, 0
-        elif k == K_RECHTS and scherm == "dag":
-            dag = min(len(DAGEN) - 1, dag + 1)
-            selectie, scroll = 0, 0
+        elif k == K_LINKS:
+            if scherm == "dag":
+                dag = max(0, dag - 1)
+                selectie, scroll = eerste_les(DAGEN[dag][3]), 0
+            elif scherm == "detail":
+                # <> bladert op het detailscherm door de lessen van de dag,
+                # zoals de voetbalk belooft. Een ander lesuur heeft een andere
+                # omschrijving, dus de huiswerk-scroll begint weer bovenaan.
+                doel = volgende_les(rijen, selectie - 1, -1)
+                if doel >= 0:
+                    selectie, scroll = doel, 0
+        elif k == K_RECHTS:
+            if scherm == "dag":
+                dag = min(len(DAGEN) - 1, dag + 1)
+                selectie, scroll = eerste_les(DAGEN[dag][3]), 0
+            elif scherm == "detail":
+                doel = volgende_les(rijen, selectie + 1, 1)
+                if doel >= 0:
+                    selectie, scroll = doel, 0
         elif k == K_OMLAAG:
-            if scherm == "dag" and rijen:
-                selectie = min(len(rijen) - 1, selectie + 1)
-                scroll = max(scroll, selectie - ZICHTBAAR + 1)
+            # Elk scherm heeft zijn eigen arm: het detailscherm scrolt door
+            # het huiswerk (scroll), niet door de cijferlijst (vak_scroll).
+            if scherm == "dag":
+                doel = volgende_les(rijen, selectie + 1, 1)
+                if doel >= 0:
+                    selectie = doel
+                    scroll = max(scroll, selectie - ZICHTBAAR + 1)
+            elif scherm == "detail":
+                scroll += 1
             elif scherm == "vakken":
                 vak = min(len(VAKKEN) - 1, vak + 1)
                 vak_scroll = max(vak_scroll, vak - 5)
-            else:
+            elif scherm == "cijfers":
                 vak_scroll += 1
         elif k == K_OMHOOG:
             if scherm == "dag":
-                selectie = max(0, selectie - 1)
-                scroll = min(scroll, selectie)
+                doel = volgende_les(rijen, selectie - 1, -1)
+                if doel >= 0:
+                    selectie = doel
+                    scroll = min(scroll, selectie)
+            elif scherm == "detail":
+                scroll = max(0, scroll - 1)
             elif scherm == "vakken":
                 vak = max(0, vak - 1)
                 vak_scroll = min(vak_scroll, vak)
-            else:
+            elif scherm == "cijfers":
                 vak_scroll = max(0, vak_scroll - 1)
         elif k == K_ENTER:
             if scherm == "dag" and rijen and rijen[selectie][L_SOORT] == "les":
