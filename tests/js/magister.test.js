@@ -135,6 +135,34 @@ test('403 is geen toegang', async () => {
   await assert.rejects(() => c.kinderen(1), (e) => e.soort === 'geen-toegang');
 });
 
+test('een 400 draagt de uitleg van Magister mee', async () => {
+  // Zonder de body is "HTTP 400" niet te duiden: dan weet je wel welke call
+  // omviel, maar niet welke parameter Magister niet lust.
+  const haal = async () => ({
+    ok: false,
+    status: 400,
+    json: async () => ({}),
+    text: async () => '{"message":"The value is not valid for actievePerioden."}',
+  });
+  const c = maakClient({ tenant: 'school.magister.net', token: 'x', haal });
+  await assert.rejects(() => c.account(), (e) => {
+    assert.equal(e.soort, 'magister-fout');
+    assert.match(e.details.uitleg, /actievePerioden/);
+    return true;
+  });
+});
+
+test('een antwoord zonder leesbare body blijft een nette fout', async () => {
+  const haal = async () => ({
+    ok: false,
+    status: 500,
+    json: async () => ({}),
+    text: async () => { throw new Error('stream al gelezen'); },
+  });
+  const c = maakClient({ tenant: 'school.magister.net', token: 'x', haal });
+  await assert.rejects(() => c.account(), (e) => e.soort === 'magister-fout');
+});
+
 test('een netwerkstoring wordt een nette fout', async () => {
   const c = maakClient({ tenant: 'school.magister.net', token: 'x',
     haal: async () => { throw new TypeError('Failed to fetch'); } });
