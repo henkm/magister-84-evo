@@ -475,3 +475,98 @@ def toon_cijfers(vak_i, scroll=0):
 
     scrollbar(scroll, ZICHTBAAR, len(cijfers))
     voetbalk("^v scroll  CLEAR vakken")
+
+
+# --- tekenlaag: geen-data-scherm ---
+
+def toon_geen_data():
+    vlak(0, 0, 319, 209, PAGINA)
+    kop("MAGISTER")
+    mededeling("geen gegevens gevonden",
+               "sync opnieuw vanaf de pc")
+    voetbalk("CLEAR sluiten")
+    D.show_draw()
+
+
+# --- hoofdlus ---
+
+# Toetscodes: NIET gemeten. Dit zijn de gok-waarden uit de taak-10-briefing;
+# de controller meet de echte codes op het apparaat (stap 4 van de briefing,
+# met KEYS via evosend) en vervangt deze acht getallen daarna.
+K_OMHOOG = 25
+K_OMLAAG = 34
+K_LINKS = 24
+K_RECHTS = 26
+K_ENTER = 5
+K_CLEAR = 45
+K_1 = 143
+K_2 = 144
+
+
+def main():
+    if not data_ok():
+        toon_geen_data()
+        wait_key()
+        return
+
+    scherm = "dag"
+    dag, selectie, scroll = 0, 0, 0
+    vak, vak_scroll = 0, 0
+
+    while True:
+        if scherm == "dag":
+            toon_dag(dag, selectie, scroll)
+        elif scherm == "detail":
+            toon_lesdetail(dag, selectie, scroll)
+        elif scherm == "vakken":
+            toon_vakken(vak, vak_scroll)
+        else:
+            toon_cijfers(vak, vak_scroll)
+        D.show_draw()
+
+        k = wait_key()
+        rijen = DAGEN[dag][3]
+
+        if k == K_CLEAR:
+            if scherm == "dag":
+                return
+            scherm = "dag" if scherm == "detail" else (
+                "vakken" if scherm == "cijfers" else "dag")
+            scroll, vak_scroll = 0, 0
+        elif k == K_1:
+            scherm, scroll = "dag", 0
+        elif k == K_2:
+            scherm, vak, vak_scroll = "vakken", 0, 0
+        elif k == K_LINKS and scherm == "dag":
+            dag = max(0, dag - 1)
+            selectie, scroll = 0, 0
+        elif k == K_RECHTS and scherm == "dag":
+            dag = min(len(DAGEN) - 1, dag + 1)
+            selectie, scroll = 0, 0
+        elif k == K_OMLAAG:
+            if scherm == "dag" and rijen:
+                selectie = min(len(rijen) - 1, selectie + 1)
+                scroll = max(scroll, selectie - ZICHTBAAR + 1)
+            elif scherm == "vakken":
+                vak = min(len(VAKKEN) - 1, vak + 1)
+                vak_scroll = max(vak_scroll, vak - 5)
+            else:
+                vak_scroll += 1
+        elif k == K_OMHOOG:
+            if scherm == "dag":
+                selectie = max(0, selectie - 1)
+                scroll = min(scroll, selectie)
+            elif scherm == "vakken":
+                vak = max(0, vak - 1)
+                vak_scroll = min(vak_scroll, vak)
+            else:
+                vak_scroll = max(0, vak_scroll - 1)
+        elif k == K_ENTER:
+            if scherm == "dag" and rijen and rijen[selectie][L_SOORT] == "les":
+                scherm, scroll = "detail", 0
+            elif scherm == "vakken" and VAKKEN:
+                scherm, vak_scroll = "cijfers", 0
+
+
+if __name__ == "__main__":
+    main()

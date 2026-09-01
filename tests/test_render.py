@@ -534,3 +534,122 @@ def test_grade_screen_scroll_past_the_end_is_clamped(tekeningen):
         M.VAKKEN = origineel
     assert [c[2] for c in te_ver] == [42, 70, 98, 126, 154]
     assert [c[2] for c in negatief] == [42, 70, 98, 126, 154]
+
+# --- geen-data-scherm en hoofdlus ---
+
+def test_missing_data_screen_says_what_to_do(tekeningen):
+    M.toon_geen_data()
+    t = [c[3] for c in teksten(tekeningen)]
+    assert "geen gegevens gevonden" in t
+    assert any("sync" in s for s in t)
+
+def test_missing_data_screen_stays_within_the_screen(tekeningen):
+    M.toon_geen_data()
+    for c in tekeningen:
+        if c[0] in ("fill_rect", "draw_rect"):
+            x, y, w, h = c[1], c[2], c[3], c[4]
+            assert x + w <= M.SCREEN_W, f"{c} loopt over de rechterrand"
+            assert y + h <= M.SCREEN_H, f"{c} loopt over de onderrand"
+        if c[0] == "draw_text":
+            x, y, s = c[1], c[2], c[3]
+            assert x + M.text_width(s) <= M.SCREEN_W, f"{c} loopt over de rechterrand"
+            assert y <= M.SCREEN_H, f"{c} loopt over de onderrand"
+
+# --- hoofdlus (main) ---
+#
+# main() wordt niet automatisch gedraaid bij import (die staat achter
+# if __name__ == "__main__": onderaan het bestand); een test roept M.main()
+# rechtstreeks aan en voedt hem een eindige reeks toetscodes door M.wait_key
+# tijdelijk te vervangen. Zonder een eindige reeks blijft de hoofdlus hangen
+# net als op het apparaat - dat is precies de reden voor de guard.
+
+def _toetsen(*codes):
+    rij = list(codes)
+    def volgende():
+        return rij.pop(0)
+    return volgende
+
+def test_main_returns_immediately_when_there_is_no_data(tekeningen):
+    origineel_dagen, origineel_key = M.DAGEN, M.wait_key
+    M.DAGEN = []
+    M.wait_key = _toetsen(0)      # main() mag maar één keer wait_key aanroepen
+    try:
+        M.main()
+    finally:
+        M.DAGEN, M.wait_key = origineel_dagen, origineel_key
+    t = [c[3] for c in teksten(tekeningen)]
+    assert "geen gegevens gevonden" in t
+
+def test_main_starts_on_the_dag_screen_and_clear_exits(tekeningen):
+    origineel = M.wait_key
+    M.wait_key = _toetsen(M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.wait_key = origineel
+    assert ("draw_text", 6, 6, "VANDAAG") in teksten(tekeningen)
+
+def test_main_right_arrow_clamps_at_the_last_day(tekeningen):
+    # DAGEN heeft 3 dagen (index 0..2); vijf keer rechts moet blijven
+    # steken op de laatste (het weekend, dag-index 2).
+    origineel = M.wait_key
+    M.wait_key = _toetsen(M.K_RECHTS, M.K_RECHTS, M.K_RECHTS,
+                          M.K_RECHTS, M.K_RECHTS, M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.wait_key = origineel
+    assert ("draw_text", 6, 25, "weekend") in teksten(tekeningen)
+
+def test_main_enter_on_a_lesson_opens_detail_and_clear_returns_to_dag(tekeningen):
+    # selectie 0 -> 2 (twee keer omlaag) landt op de natuurkundeles;
+    # ENTER opent het lesdetail, CLEAR gaat terug, CLEAR sluit af.
+    origineel = M.wait_key
+    M.wait_key = _toetsen(M.K_OMLAAG, M.K_OMLAAG, M.K_ENTER,
+                          M.K_CLEAR, M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.wait_key = origineel
+    assert ("draw_text", 54, 31, "natuurkunde") in teksten(tekeningen)
+
+def test_main_enter_on_a_gap_row_does_nothing(tekeningen):
+    # rij-index 1 op dag 0 is een tussenuur ("gat"); ENTER daarop mag geen
+    # lesdetail openen.
+    origineel = M.wait_key
+    M.wait_key = _toetsen(M.K_OMLAAG, M.K_ENTER, M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.wait_key = origineel
+    labels = [c[3] for c in teksten(tekeningen)]
+    assert not any(s.startswith("LESUUR") for s in labels)
+
+def test_main_key_2_and_enter_walk_to_cijfers_and_clear_chain_returns_to_dag(tekeningen):
+    # 2 -> vakken, ENTER -> cijfers (vak 0, wiskunde B), daarna sluit de
+    # CLEAR-keten via vakken terug naar dag en tenslotte de app af.
+    origineel = M.wait_key
+    M.wait_key = _toetsen(M.K_2, M.K_ENTER, M.K_CLEAR,
+                          M.K_CLEAR, M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.wait_key = origineel
+    t = teksten(tekeningen)
+    assert ("draw_text", 6, 6, "VAKKEN") in t
+    assert ("draw_text", 6, 6, "WISKUNDE B") in t
+    # de laatste van elk paar getekende titels bevestigt de eindtoestand:
+    # het scherm eindigt weer op de dag-lijst.
+    namen = [c[3] for c in t if c[3] in ("VANDAAG", "VAKKEN")]
+    assert namen[-1] == "VANDAAG"
+
+def test_main_key_1_jumps_directly_back_to_dag(tekeningen):
+    origineel = M.wait_key
+    M.wait_key = _toetsen(M.K_2, M.K_1, M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.wait_key = origineel
+    t = teksten(tekeningen)
+    namen = [c[3] for c in t if c[3] in ("VANDAAG", "VAKKEN")]
+    assert namen[-1] == "VANDAAG"
