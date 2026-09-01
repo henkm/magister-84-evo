@@ -2,16 +2,16 @@
 <meta charset="utf-8">
 <title>Schermafdruk voor de Web Store</title>
 <!--
-  Zet het paneel op 1280x800, de maat die de Chrome Web Store vraagt. Het
-  paneel zelf is 420 px breed; los op een frame van 1280 zou het een streepje
-  in de hoek zijn.
+  Zet het paneel of een foto op 1280x800, de maat die de Chrome Web Store
+  vraagt. Het paneel zelf is 420 px breed; los op een frame van 1280 zou het
+  een streepje in de hoek zijn.
 
   Draaien vanuit de wortel van de repo:
     python3 -m http.server 8765
     http://localhost:8765/docs/store/schermafdruk.html?scherm=klaar
 
-  De schermen zijn: kind-kiezen, klaar, bezig, gereed. Het paneel staat in de
-  demostand, dus met verzonnen namen en zonder Magister of rekenmachine.
+  De schermen staan hieronder in SCHERMEN. Het paneel draait in de demostand,
+  dus met verzonnen namen en zonder Magister of rekenmachine.
 -->
 <style>
   :root { --blauw: #0B6BB5; --diep: #08375C; }
@@ -40,45 +40,53 @@
                 0 3px 10px rgba(8, 55, 92, 0.10);
   }
   .venster iframe { display: block; border: 0; transform-origin: top left; }
+  /* Een staande foto in een liggend frame: cover snijdt de randen weg,
+     object-position bepaalt welk stuk je overhoudt. */
+  .venster img { display: block; width: 100%; height: 100%; object-fit: cover; }
 </style>
 <div class="tekst">
   <h1 id="kop"></h1>
   <p id="onder"></p>
   <ul id="punten"></ul>
 </div>
-<div class="venster" id="venster"><iframe id="paneel"></iframe></div>
+<div class="venster" id="venster"></div>
 <script>
-  // Per scherm: de kop, de regel eronder, de opsomming, en hoe hoog het
-  // paneel op dat scherm is. Die hoogte is gemeten, niet geraden -- een
-  // iframe rekt niet mee met zijn inhoud.
+  // Elk scherm is een kop, een regel eronder en drie punten. Geschreven voor
+  // iemand die de extensie nog niet kent en zich afvraagt wat hij eraan heeft
+  // -- niet voor iemand die wil weten hoe hij werkt.
   const SCHERMEN = {
     klaar: {
-      kop: 'Je rooster op je rekenmachine',
-      onder: 'Een klik, en het rooster van vier weken plus de cijferlijst van '
-        + 'dit schooljaar staan erop.',
-      punten: ['Leest je eigen, ingelogde Magister-tab',
-        'Verstuurt over de USB-kabel', 'Werkt daarna zonder internet'],
+      kop: 'Je rooster in de les, zonder je telefoon',
+      onder: 'Op steeds meer scholen moet je telefoon de klas uit. Je grafische '
+        + 'rekenmachine niet, en die heb je toch al bij je.',
+      punten: ['Welk uur, welk lokaal, welke docent',
+        'Het huiswerk staat erbij', 'Geen wifi nodig'],
     },
-    'kind-kiezen': {
-      kop: 'Voor wie is deze rekenmachine?',
-      onder: 'Heb je als ouder meer dan een kind, dan kies je er hier een. '
-        + 'Die keuze wordt onthouden.',
-      punten: ['Eenmalig kiezen', 'Per rekenmachine een kind',
-        'Later te wijzigen met een knop'],
-    },
-    bezig: {
-      kop: 'Versturen duurt een paar tellen',
-      onder: 'De app en de gegevens gaan als twee programma’s naar het '
-        + 'apparaat, met een voortgangsbalk erbij.',
-      punten: ['Afbreken kan altijd', 'Stopt netjes op een pakketgrens',
-        'Geen half programma op het apparaat'],
+    foto: {
+      kop: 'Zo staat het op je scherm',
+      onder: 'Aanzetten en je dag staat er. Geen menu’s, geen laadtijd, geen '
+        + 'internet.',
+      punten: ['Bladeren met de pijltjes',
+        'ENTER voor het huiswerk bij een les', '2 voor je cijfers'],
+      foto: 'foto-apparaat.jpg',
+      // Welk stuk van de staande foto in beeld blijft.
+      uitsnede: 'center 44%',
     },
     gereed: {
-      kop: 'Klaar, met een samenvatting',
-      onder: 'Hoeveel lessen en cijfers erop staan, en tot welke dag het '
-        + 'rooster reikt.',
-      punten: ['Rooster van vier weken', 'Cijfers van dit schooljaar',
-        'Huiswerk en mededelingen per les'],
+      kop: 'Vier weken vooruit, en al je cijfers',
+      onder: 'Een klik en een paar tellen later staat alles erop. Daarna werkt '
+        + 'het de hele dag zonder internet.',
+      punten: ['Uitval en wijzigingen zie je meteen',
+        'Cijfers per vak, met het gemiddelde',
+        'Blijft staan tot je opnieuw synct'],
+    },
+    'kind-kiezen': {
+      kop: 'Twee kinderen, twee rekenmachines',
+      onder: 'Log in met je eigen ouderaccount en kies wie deze rekenmachine '
+        + 'krijgt. Dat hoef je maar een keer te doen.',
+      punten: ['Werkt net zo goed op een leerlingaccount',
+        'Je hoeft nergens opnieuw in te loggen',
+        'Alleen dat kind gaat mee de kabel in'],
     },
   };
 
@@ -91,21 +99,32 @@
   document.getElementById('punten').innerHTML =
     s.punten.map((p) => `<li>${p}</li>`).join('');
 
-  const paneel = document.getElementById('paneel');
   const venster = document.getElementById('venster');
-  venster.style.width = `${Math.round(420 * SCHAAL)}px`;
-  paneel.width = 420;
-  paneel.style.transform = `scale(${SCHAAL})`;
 
-  // De hoogte per scherm meten in plaats van hem hier op te schrijven: een
-  // opgeschreven hoogte loopt achter zodra er een regel tekst bij komt, en dat
-  // zie je pas terug als een strook leegte onder de knoppen.
-  paneel.addEventListener('load', () => {
-    const doc = paneel.contentDocument;
-    const hoog = Math.ceil(doc.documentElement.getBoundingClientRect().height);
-    paneel.height = hoog;
-    venster.style.height = `${Math.round(hoog * SCHAAL)}px`;
-    document.title = `klaar: ${naam} (${hoog}px)`;
-  });
-  paneel.src = `/extension/panel.html?scherm=${encodeURIComponent(naam)}`;
+  if (s.foto) {
+    venster.style.width = '520px';
+    venster.style.height = '620px';
+    const img = document.createElement('img');
+    img.style.objectPosition = s.uitsnede || 'center';
+    img.addEventListener('load', () => { document.title = `klaar: ${naam}`; });
+    img.src = s.foto;
+    venster.append(img);
+  } else {
+    const paneel = document.createElement('iframe');
+    venster.style.width = `${Math.round(420 * SCHAAL)}px`;
+    paneel.width = 420;
+    paneel.style.transform = `scale(${SCHAAL})`;
+    // De hoogte per scherm meten in plaats van hem hier op te schrijven: een
+    // opgeschreven hoogte loopt achter zodra er een regel tekst bij komt, en
+    // dat zie je pas terug als een strook leegte onder de knoppen.
+    paneel.addEventListener('load', () => {
+      const doc = paneel.contentDocument;
+      const hoog = Math.ceil(doc.documentElement.getBoundingClientRect().height);
+      paneel.height = hoog;
+      venster.style.height = `${Math.round(hoog * SCHAAL)}px`;
+      document.title = `klaar: ${naam} (${hoog}px)`;
+    });
+    paneel.src = `/extension/panel.html?scherm=${encodeURIComponent(naam)}`;
+    venster.append(paneel);
+  }
 </script>

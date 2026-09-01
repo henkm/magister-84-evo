@@ -1,3 +1,4 @@
+.DS_Store
 bin/
 __pycache__/
 .env
@@ -8,3 +9,8 @@ dist/
 # werkbestanden van agents (harness-scratch)
 .claude/worktrees/
 .superpowers/
+
+# Ruwe foto's van het apparaat. Daar staat het scherm op, en dus een echte
+# naam met een echt rooster. De samengestelde slide in docs/store/screenshots/
+# hoort met demodata gemaakt te zijn en mag wel mee.
+docs/store/foto-*
