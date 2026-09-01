@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <title>Magister naar TI-84</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+<header class="kop">
+  <h1 id="koptitel">Magister naar TI-84</h1>
+  <span class="kindchip" id="kindchip" hidden>
+    <span class="initiaal" id="kindinitiaal"></span>
+    <span id="kindnaam"></span>
+  </span>
+</header>
+<div class="foutstreep" id="foutstreep" hidden></div>
+
+<main>
+  <section id="s-kind-kiezen" hidden>
+    <h2>Voor wie is deze rekenmachine?</h2>
+    <p>Je Magister-account heeft meer dan een kind. Alleen de data van het
+       gekozen kind gaat naar de rekenmachine. Je kunt dit later wijzigen.</p>
+    <div class="kaarten" id="kindkaarten"></div>
+    <div class="knoppen">
+      <button class="primair" id="knop-doorgaan" disabled>Doorgaan</button>
+    </div>
+  </section>
+
+  <section id="s-klaar" hidden>
+    <h2>Klaar om te syncen</h2>
+    <p class="sub" id="laatste-sync"></p>
+    <ul class="feiten">
+      <li class="gemarkeerd"><b>Rooster</b><span id="feit-rooster"></span></li>
+      <li class="gemarkeerd"><b>Cijfers</b><span id="feit-cijfers"></span></li>
+      <li><b>Rekenmachine</b><span id="feit-apparaat"></span></li>
+    </ul>
+    <div class="knoppen">
+      <button class="primair" id="knop-sync">Nu syncen</button>
+      <button class="secundair" id="knop-ander-kind">Ander kind</button>
+    </div>
+  </section>
+
+  <section id="s-koppelen" hidden>
+    <h2>Rekenmachine koppelen</h2>
+    <p>Chrome moet een keer toestemming krijgen. Straks opent een venster van
+       de browser — niet van deze extensie.</p>
+    <ol class="stappen">
+      <li>Sluit de TI-84 met de USB-C-kabel aan en zet hem aan.</li>
+      <li>Klik hieronder. Chrome laat een lijst apparaten zien.</li>
+      <li>Kies TI-84 Evo-T en klik op Verbinden.</li>
+    </ol>
+    <div class="nagebouwd">
+      <span class="label">ZO ZIET DAT VENSTER ERUIT</span>
+      <div class="regel">TI-84 Evo-T</div>
+    </div>
+    <div class="knoppen">
+      <button class="primair" id="knop-kies-poort">Rekenmachine kiezen</button>
+    </div>
+  </section>
+
+  <section id="s-bezig" hidden>
+    <ol class="fasen">
+      <li id="fase-ophalen"><span class="bol"></span>Magister lezen
+        <em id="fase-ophalen-feit"></em></li>
+      <li id="fase-genereren"><span class="bol"></span>Bestand maken
+        <em id="fase-genereren-feit"></em></li>
+      <li id="fase-versturen"><span class="bol"></span>Versturen
+        <em id="fase-versturen-feit"></em></li>
+    </ol>
+    <div class="baan"><div class="vulling" id="baan-vulling"></div></div>
+    <div class="baanregel">
+      <span id="baan-percentage"></span>
+      <span id="baan-resterend"></span>
+    </div>
+    <p class="waarschuwing">Laat de kabel zitten tot dit klaar is.</p>
+    <div class="knoppen">
+      <button class="secundair" id="knop-afbreken">Afbreken</button>
+    </div>
+  </section>
+
+  <section id="s-gereed" hidden>
+    <h2 id="gereed-kop"></h2>
+    <p class="sub" id="gereed-sub"></p>
+    <div class="blokken">
+      <div class="blok"><b id="gereed-lessen"></b><span id="gereed-lessen-bij"></span></div>
+      <div class="blok"><b id="gereed-cijfers"></b><span id="gereed-cijfers-bij"></span></div>
+    </div>
+    <p class="slot" id="gereed-slot"></p>
+    <div class="knoppen">
+      <button class="primair" id="knop-sluiten">Klaar</button>
+      <button class="secundair" id="knop-nog-een-kind">Ander kind</button>
+    </div>
+  </section>
+
+  <section id="s-fout" hidden>
+    <h2 id="fout-kop"></h2>
+    <p id="fout-body"></p>
+    <div class="baan" id="fout-baan" hidden>
+      <div class="vulling oranje" id="fout-baan-vulling"></div>
+    </div>
+    <p class="sub" id="fout-baan-tekst" hidden></p>
+    <div class="volgende-stap">
+      <span class="label">VOLGENDE STAP</span>
+      <p id="fout-stap"></p>
+    </div>
+    <div class="knoppen">
+      <button class="primair" id="knop-fout"></button>
+    </div>
+  </section>
+</main>
+<script type="module" src="panel.js"></script>
+</body>
+</html>

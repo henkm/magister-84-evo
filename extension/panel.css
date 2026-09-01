@@ -1,0 +1,311 @@
+/* Vormgeving van het extensiepaneel. Volgt docs/design/2026-08-31-ontwerp-
+   overdracht.md, paragraaf "Chrome-extensie". Donkere modus wisselt alleen de
+   kleurtokens; structuur en teksten blijven identiek. */
+
+:root {
+  --blauw: #0B6BB5;
+  --azuur: #1E96EF;
+  --band: #E9F4FD;
+  --selectie: #D6E9FA;
+  --pagina: #F4F9FE;
+  --rand: #D6E4F0;
+  --donker: #10314F;
+  --gedempt: #5B7B98;
+  --oranje: #F5820B;
+  --hover: #095A99;
+  --vlak: #FFFFFF;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --band: #12283C;
+    --selectie: #17334C;
+    --pagina: #0C1B29;
+    --rand: #23405A;
+    --donker: #E8F2FB;
+    --gedempt: #93AFC7;
+    --vlak: #102232;
+  }
+}
+
+* { box-sizing: border-box; }
+
+/* Zonder deze regel wint een eigen display-waarde van het hidden-attribuut:
+   .kindchip { display: inline-flex } liet de chip zien op het keuzescherm,
+   waar hij juist weg hoort. */
+[hidden] { display: none !important; }
+
+body {
+  width: 420px;
+  margin: 0 auto;
+  font: 14px/1.45 Archivo, "Helvetica Neue", Arial, sans-serif;
+  color: var(--donker);
+  background: var(--vlak);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(16, 49, 79, .16);
+}
+
+.kop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px;
+  background: var(--blauw);
+}
+
+.kop h1 { margin: 0; font-size: 14px; font-weight: 700; color: #fff; }
+
+.kindchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 10px 3px 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .18);
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.initiaal {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--blauw);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.foutstreep { height: 4px; background: var(--oranje); }
+
+main { padding: 20px 18px; }
+section { display: flex; flex-direction: column; gap: 16px; }
+
+h2 { margin: 0; font-size: 18px; font-weight: 700; }
+p { margin: 0; }
+.sub { color: var(--gedempt); font-size: 13px; }
+
+/* --- kind kiezen --- */
+.kaarten { display: flex; flex-direction: column; gap: 10px; }
+
+.kaart {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--rand);
+  border-radius: 10px;
+  background: var(--vlak);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  /* Een kaart is een <button>, dus de generieke knopregel onderaan dit
+     bestand raakt hem ook. Die zet height: 44px en flex: 1; een kaart met een
+     rondje van 36 px plus padding is hoger dan dat en zou afgeknepen worden. */
+  height: auto;
+  flex: 0 0 auto;
+}
+
+.kaart[aria-pressed="true"] {
+  border: 2px solid var(--blauw);
+  background: var(--band);
+  padding: 11px;
+}
+
+.kaart .rondje {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--blauw);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* De naam boven het bijschrift: twee regels binnen een kaart die zelf een
+   rij is. Zonder deze kolom staan naam en bijschrift naast elkaar. */
+.kaart .wie { display: flex; flex-direction: column; min-width: 0; }
+
+.kaart .naam { font-weight: 600; }
+.kaart .school { font-size: 12px; color: var(--gedempt); }
+.kaart .vink { margin-left: auto; width: 18px; height: 18px; color: var(--blauw); }
+
+/* --- feitenlijst --- */
+.feiten {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--rand);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.feiten li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border-top: 1px solid var(--rand);
+  background: var(--vlak);
+}
+
+.feiten li:first-child { border-top: 0; }
+.feiten li.gemarkeerd { background: var(--band); border-left: 4px solid var(--azuur); }
+.feiten li span { color: var(--gedempt); font-size: 13px; text-align: right; }
+
+/* --- koppelen --- */
+.stappen { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.stappen li { display: flex; gap: 10px; align-items: flex-start; counter-increment: stap; }
+
+.stappen li::before {
+  content: counter(stap);
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--blauw);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.stappen { counter-reset: stap; }
+
+.nagebouwd {
+  border: 1px dashed var(--azuur);
+  border-radius: 10px;
+  background: var(--pagina);
+  padding: 12px;
+}
+
+.nagebouwd .regel {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--vlak);
+  border: 1px solid var(--rand);
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--gedempt);
+}
+
+/* --- bezig --- */
+.fasen { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+
+.fasen li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--gedempt);
+}
+
+.fasen li em { margin-left: auto; font-style: normal; font-size: 12px; }
+.fasen li.bezig { color: var(--donker); font-weight: 600; }
+.fasen li.af { color: var(--gedempt); }
+
+.bol {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--rand);
+}
+
+.fasen li.af .bol {
+  border-color: var(--blauw);
+  background: var(--blauw);
+  position: relative;
+}
+
+.fasen li.af .bol::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 3px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.fasen li.bezig .bol {
+  border-color: var(--azuur);
+  border-top-color: var(--band);
+  animation: draai 900ms linear infinite;
+}
+
+@keyframes draai { to { transform: rotate(360deg); } }
+
+.baan { height: 8px; border-radius: 999px; background: var(--band); overflow: hidden; }
+.vulling { height: 100%; width: 0; background: var(--blauw); border-radius: 999px; }
+.vulling.oranje { background: var(--oranje); }
+
+.baanregel {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--gedempt);
+  margin-top: -10px;
+}
+
+.waarschuwing {
+  padding: 11px 12px;
+  background: var(--pagina);
+  border-left: 4px solid var(--oranje);
+  font-size: 13px;
+}
+
+/* --- gereed --- */
+.blokken { display: flex; gap: 12px; }
+
+.blok {
+  flex: 1;
+  padding: 12px;
+  background: var(--band);
+  border-left: 4px solid var(--azuur);
+}
+
+.blok b { display: block; font-size: 24px; line-height: 1.1; }
+.blok span { font-size: 12px; color: var(--gedempt); }
+.slot { font-size: 13px; color: var(--gedempt); }
+
+/* --- fout --- */
+.volgende-stap {
+  padding: 12px;
+  background: var(--pagina);
+  border-left: 4px solid var(--oranje);
+}
+
+.volgende-stap p { margin-top: 6px; font-size: 13px; }
+
+/* --- knoppen --- */
+.knoppen { display: flex; gap: 10px; }
+
+button {
+  flex: 1;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font: 600 14px Archivo, "Helvetica Neue", Arial, sans-serif;
+  cursor: pointer;
+}
+
+button.primair { background: var(--blauw); color: #fff; }
+button.primair:hover:not(:disabled) { background: var(--hover); }
+button.primair:disabled { opacity: .45; cursor: default; }
+button.secundair { background: var(--vlak); color: var(--blauw); border-color: var(--rand); }
+button.secundair:hover { background: var(--band); }
