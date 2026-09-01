@@ -162,7 +162,7 @@ Full source: https://github.com/henkm/magister-84-evo
 | --- | --- | --- |
 | Pictogram | 128x128 PNG | `extension/icons/icon-128.png` |
 | Screenshot 1 | 1280x800 | `screenshots/1-klaar.png` |
-| Screenshot 2 | 1280x800 | `screenshots/2-op-het-apparaat.png` -- **nog te maken** |
+| Screenshot 2 | 1280x800 | `screenshots/2-op-het-apparaat.png` |
 | Screenshot 3 | 1280x800 | `screenshots/3-gereed.png` |
 | Screenshot 4 | 1280x800 | `screenshots/4-kind-kiezen.png` |
 | Kleine promotietegel | 440x280, optioneel | nog niet gemaakt |
@@ -170,14 +170,13 @@ Full source: https://github.com/henkm/magister-84-evo
 De screenshots van het paneel komen uit de demostand, dus met de verzonnen
 namen Fenna en Sem en zonder een echte Magister-sessie.
 
-Nummer 2 is de belangrijkste en de enige die nog moet: een foto van de
-rekenmachine met het rooster erop. Dat beeld vertelt waar dit over gaat, en
-het kan alleen een foto zijn.
+Nummer 2 is de belangrijkste: de foto van de rekenmachine met het rooster
+erop. Dat beeld vertelt waar dit over gaat.
 
-**Let op wat er op dat schermpje staat.** Een foto van een gewone sync toont
-de naam van je kind, haar rooster van die dag en de volledige namen van haar
-docenten -- in een publieke listing wereldwijd zichtbaar. Zet daarom eerst de
-demodata op het apparaat, en fotografeer dat:
+**Let op wat er op dat schermpje staat** als je hem opnieuw maakt. Een foto van
+een gewone sync toont de naam van je kind, haar rooster van die dag en de
+volledige namen van haar docenten -- in een publieke listing wereldwijd
+zichtbaar. Zet daarom eerst de demodata op het apparaat, en fotografeer dat:
 
 ```bash
 python3 -m tools.evosend MAGDATA calc/MAGDATA.py

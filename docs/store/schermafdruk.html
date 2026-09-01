@@ -69,8 +69,10 @@
       punten: ['Bladeren met de pijltjes',
         'ENTER voor het huiswerk bij een les', '2 voor je cijfers'],
       foto: 'foto-apparaat.jpg',
-      // Welk stuk van de staande foto in beeld blijft.
-      uitsnede: 'center 44%',
+      // Het kader is liggender dan de staande foto, zodat de toetsen onderaan
+      // wegvallen en het schermpje overblijft. uitsnede bepaalt welk stuk.
+      kader: [520, 480],
+      uitsnede: 'center 5%',
     },
     gereed: {
       kop: 'Vier weken vooruit, en al je cijfers',
@@ -102,8 +104,9 @@
   const venster = document.getElementById('venster');
 
   if (s.foto) {
-    venster.style.width = '520px';
-    venster.style.height = '620px';
+    const [breed, hoog] = s.kader || [520, 620];
+    venster.style.width = `${breed}px`;
+    venster.style.height = `${hoog}px`;
     const img = document.createElement('img');
     img.style.objectPosition = s.uitsnede || 'center';
     img.addEventListener('load', () => { document.title = `klaar: ${naam}`; });

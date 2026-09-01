@@ -304,9 +304,3 @@ python3 -m tools.evosend MAGDATA calc/MAGDATA.py
 ```
 
 Een lopend programma houdt de poort vast; sluit het eerst af met CLEAR of ON.
-
-Verder is er één bewuste afwijking van het ontwerp: de keuzekaarten tonen
-alleen de naam van het kind, niet de regel `4 havo · Stedelijk Lyceum`
-eronder. Die gegevens zitten niet in het `/kinderen`-antwoord en zouden per
-kind een extra call kosten op precies het eerste scherm — een call die 403 kan
-geven.
