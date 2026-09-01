@@ -1,9 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import {
   bouwDagen, chipVoor, kopDatum, lokaleTijd, platteTekst,
 } from '../../extension/src/rooster.js';
+
+const ROOSTER_PAD = fileURLToPath(new URL('../../extension/src/rooster.js', import.meta.url));
 
 const AFSPRAKEN = JSON.parse(
   readFileSync(new URL('../fixtures/afspraken.json', import.meta.url), 'utf8')).Items;
@@ -75,6 +79,39 @@ test('HTML uit Inhoud wordt platte tekst', () => {
   assert.equal(platteTekst('  veel    ruimte  '), 'veel ruimte');
 });
 
+test('platteTekst laat gewone wiskundetekst met < en > met rust', () => {
+  assert.equal(platteTekst('los op: x < 5 en y > 2, dus x < y'),
+    'los op: x < 5 en y > 2, dus x < y');
+});
+
+test('platteTekst haalt script- en style-inhoud helemaal weg', () => {
+  assert.equal(platteTekst('<script>if (1 < 2) { alert("x") }</script>tekst erna'),
+    'tekst erna');
+  assert.equal(platteTekst('<style>body{color:red}</style>zichtbaar'), 'zichtbaar');
+});
+
+test('platteTekst laat HTML-commentaar weg', () => {
+  assert.equal(platteTekst('<!-- verborgen -->zichtbaar'), 'zichtbaar');
+});
+
+test('platteTekst breekt niet op een > in een attribuutwaarde', () => {
+  assert.equal(platteTekst('<a title="a > b">link</a>tekst'), 'linktekst');
+});
+
+test('platteTekst zet blokelementen om in spaties, ook geneste', () => {
+  assert.equal(platteTekst('<ul><li>een</li><li>twee</li></ul>'), 'een twee');
+});
+
+test('platteTekst zet entities om, ook los van tags', () => {
+  assert.equal(platteTekst('a &lt; b'), 'a < b');
+});
+
+test('platteTekst laat een tag die nooit sluit als zichtbare tekst staan', () => {
+  // Bewuste keuze: zonder afsluitende > matcht TAG niet, dus blijft de rommel
+  // zichtbaar staan in plaats van dat er stilletjes tekst na verdwijnt.
+  assert.equal(platteTekst('<important dit sluit nooit'), '<important dit sluit nooit');
+});
+
 test('de docent staat als naam met code', () => {
   assert.equal(dagen()[0][3][0][6], 'Alting (ALT)');
 });
@@ -121,9 +158,51 @@ test('elke rij heeft precies elf velden en alle velden zijn strings', () => {
   }
 });
 
+test('lessen op een dag komen op tijdsvolgorde, ook als Magister ze omgekeerd aanlevert', () => {
+  // Op 2026-09-04 (index 3) staat "duits" (11:00) vóór "biologie" (09:00) in de
+  // fixture — een niet-gesorteerde volgorde zoals na een omzetting kan voorkomen.
+  const rijen = dagen()[3][3];
+  const lessen = rijen.filter((r) => r[0] === 'les');
+  assert.deepEqual(lessen.map((r) => r[4]), ['biologie', 'duits']);
+  assert.equal(lessen[0][1], '09:00');
+  assert.equal(lessen[1][1], '11:00');
+});
+
 test('de zomer-wintertijdgrens verschuift geen dag', () => {
   // 25 oktober 2026 is de nacht waarin de klok teruggaat
   const d = bouwDagen([], { vandaag: '2026-10-23', aantalDagen: 5 });
-  assert.deepEqual(d.map((x) => x[0]),
+  const lokaal = d.map((x) => x[0]);
+  assert.deepEqual(lokaal,
     ['2026-10-23', '2026-10-24', '2026-10-25', '2026-10-26', '2026-10-27']);
+
+  // Bovenstaande draait in de tijdzone van de testmachine, en JS-Date-rekenen
+  // op lokale middernacht is zelf ook DST-bewust: een anker op lokale
+  // middernacht (in plaats van 12:00 UTC) zou hier dus ook slagen. Om de
+  // 12:00-UTC-ankertechniek echt te bewaken, dwingen we een tijdzone ver van
+  // Amsterdam af (Kiritimati, UTC+14, geen zomertijd) in een kindproces en
+  // vergelijken we met de uitkomst hierboven — ongeacht wat de testmachine zelf is.
+  const script = `
+    import { bouwDagen } from ${JSON.stringify(ROOSTER_PAD)};
+    const d = bouwDagen([], { vandaag: '2026-10-23', aantalDagen: 5 });
+    process.stdout.write(JSON.stringify(d.map((x) => x[0])));
+  `;
+  const uitvoer = execFileSync(process.execPath, ['--input-type=module', '-e', script],
+    { env: { ...process.env, TZ: 'Pacific/Kiritimati' }, encoding: 'utf8' });
+  assert.deepEqual(JSON.parse(uitvoer), lokaal);
+});
+
+test('een afspraak met een onleesbare Start wordt overgeslagen, niet een crash', (t) => {
+  const gewaarschuwd = t.mock.method(console, 'warn', () => {});
+  const kapot = {
+    Id: 999, Start: 'niet-een-datum', Einde: '2026-09-10T07:45:00Z',
+    LesuurVan: 1, LesuurTotMet: 1, Omschrijving: 'kapotte afspraak',
+    Vakken: [{ Naam: 'kapotte afspraak' }],
+  };
+  const d = bouwDagen([...AFSPRAKEN, kapot], { vandaag: '2026-09-01', aantalDagen: 28 });
+  const alleRijen = d.flatMap((x) => x[3]);
+  assert.equal(alleRijen.some((r) => r[4] === 'kapotte afspraak'), false);
+  assert.equal(gewaarschuwd.mock.calls.length, 1);
+  const [bericht, details] = gewaarschuwd.mock.calls[0].arguments;
+  assert.match(bericht, /Start niet te parsen/);
+  assert.equal(details.id, 999);
 });

@@ -50,7 +50,15 @@ function normaliseer(c) {
 }
 
 export function bouwVakken(rauw) {
-  const alle = (rauw || []).map(normaliseer).filter((c) => c.vak);
+  const alle = (rauw || []).map(normaliseer).filter((c) => {
+    if (c.vak) return true;
+    // Zonder Vak is er geen plek in het VAKKEN-model voor dit cijfer. We slaan
+    // de rij over, maar niet stilletjes: anders lijkt een kapotte rij op een
+    // vak zonder dat cijfer.
+    console.warn('cijfers: cijferrij overgeslagen, geen Vak',
+      { kop: c.kop, cijfer: c.cijfer, datum: c.datum });
+    return false;
+  });
   const gewoon = alle.filter((c) => c.kolomsoort === 1);
   const berekend = alle.filter((c) => c.kolomsoort !== 1);
 

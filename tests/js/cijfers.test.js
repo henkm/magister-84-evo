@@ -32,6 +32,14 @@ test('het oordeel van Magister zelf gaat voor de eigen grens van 5,5', () => {
   assert.equal(soortVoor({ cijfer: '5,4', voldoende: undefined }), 'onvoldoende');
 });
 
+test('de fallback-grens vergelijkt numeriek, niet als tekst: "10,0" < "5,5"', () => {
+  // Zonder oordeel van Magister valt soortVoor terug op getal(...) < 5,5.
+  // Als dat als tekst zou vergelijken, verliest "10,0" van "5,5" (want '1' < '5'
+  // in tekstvolgorde) en zou een tien onterecht als onvoldoende gelden.
+  assert.equal(soortVoor({ cijfer: '10,0', voldoende: undefined }), 'normaal');
+  assert.equal(soortVoor({ cijfer: '9,5', voldoende: undefined }), 'normaal');
+});
+
 test('berekende kolommen worden het gemiddelde, niet een cijferrij', () => {
   const w = vak('wiskunde B');
   assert.equal(w[1], '7,2');
@@ -54,7 +62,14 @@ test('cijfers staan op chronologische volgorde, oudste eerst', () => {
 
 test('vakken staan op alfabetische volgorde', () => {
   assert.deepEqual(bouwVakken(RIJEN).vakken.map((v) => v[0]),
-    ['geschiedenis', 'lichamelijke opvoeding', 'natuurkunde', 'wiskunde B']);
+    ['duits', 'geschiedenis', 'lichamelijke opvoeding', 'natuurkunde', 'wiskunde B']);
+});
+
+test('GEM wint van een andere berekende kolom die er ná komt', () => {
+  // duits heeft twee berekende kolommen: GEM (7,4) en daarna een "Tussenstand"
+  // (6,0, kolomSoort 3, geen GEM). Als "de laatste berekende kolom wint" was
+  // geïmplementeerd in plaats van "GEM wint altijd", zou dit 6,0 opleveren.
+  assert.equal(vak('duits')[1], '7,4');
 });
 
 test('camelCase-rijen worden net zo verwerkt', () => {
@@ -69,6 +84,23 @@ test('de periode is de verzameling periodes van de gewone cijfers', () => {
 
 test('geen cijfers is een geldige uitkomst, geen fout', () => {
   assert.deepEqual(bouwVakken([]), { vakken: [], periode: '' });
+});
+
+test('een cijferrij zonder Vak wordt overgeslagen, niet een crash', (t) => {
+  const gewaarschuwd = t.mock.method(console, 'warn', () => {});
+  const kapot = {
+    CijferStr: '8,0', IsVoldoende: true, DatumIngevoerd: '2026-06-01T10:00:00Z',
+    CijferPeriode: { Naam: 'P1' },
+    CijferKolom: { KolomKop: 'zonder vak', KolomSoort: 1 },
+    TeltMee: true, Vrijstelling: false, Inhalen: false,
+  };
+  const { vakken } = bouwVakken([...RIJEN, kapot]);
+  const alleRijen = vakken.flatMap((v) => v[2]);
+  assert.equal(alleRijen.some((r) => r[0] === 'zonder vak'), false);
+  assert.equal(gewaarschuwd.mock.calls.length, 1);
+  const [bericht, details] = gewaarschuwd.mock.calls[0].arguments;
+  assert.match(bericht, /geen Vak/);
+  assert.equal(details.cijfer, '8,0');
 });
 
 test('elke cijferrij heeft vier velden, allemaal strings', () => {

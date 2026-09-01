@@ -31,7 +31,19 @@
       "lokatie": "301", "status": 1, "infoType": 0, "inhoud": null,
       "vakken": [{ "naam": "aardrijkskunde" }],
       "docenten": [{ "naam": "Smit", "docentcode": "SMT" }],
-      "lokalen": [{ "naam": "301" }] }
+      "lokalen": [{ "naam": "301" }] },
+    { "Id": 6, "Start": "2026-09-04T09:00:00Z", "Einde": "2026-09-04T09:45:00Z",
+      "LesuurVan": 5, "LesuurTotMet": 5, "Omschrijving": "duits",
+      "Lokatie": "220", "Status": 1, "InfoType": 0, "Inhoud": null,
+      "Vakken": [{ "Naam": "duits" }],
+      "Docenten": [{ "Naam": "Jansen", "Docentcode": "JNS" }],
+      "Lokalen": [{ "Naam": "220" }] },
+    { "Id": 7, "Start": "2026-09-04T07:00:00Z", "Einde": "2026-09-04T07:45:00Z",
+      "LesuurVan": 1, "LesuurTotMet": 1, "Omschrijving": "biologie",
+      "Lokatie": "221", "Status": 1, "InfoType": 0, "Inhoud": null,
+      "Vakken": [{ "Naam": "biologie" }],
+      "Docenten": [{ "Naam": "Peters", "Docentcode": "PTS" }],
+      "Lokalen": [{ "Naam": "221" }] }
   ],
-  "TotalCount": 5
+  "TotalCount": 7
 }

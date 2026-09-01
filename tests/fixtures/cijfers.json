@@ -39,7 +39,22 @@
       "vak": { "afkorting": "gs", "omschrijving": "geschiedenis" },
       "cijferPeriode": { "naam": "P2" },
       "cijferKolom": { "kolomKop": "Werkstuk", "kolomSoort": 1 },
-      "teltMee": true, "vrijstelling": false, "inhalen": false }
+      "teltMee": true, "vrijstelling": false, "inhalen": false },
+    { "CijferStr": "8,0", "IsVoldoende": true, "DatumIngevoerd": "2026-06-10T10:00:00Z",
+      "Vak": { "Afkorting": "du", "Omschrijving": "duits" },
+      "CijferPeriode": { "Naam": "P1" },
+      "CijferKolom": { "KolomKop": "SO 1", "KolomSoort": 1 },
+      "TeltMee": true, "Vrijstelling": false, "Inhalen": false },
+    { "CijferStr": "7,4", "IsVoldoende": true, "DatumIngevoerd": "2026-06-29T10:00:00Z",
+      "Vak": { "Afkorting": "du", "Omschrijving": "duits" },
+      "CijferPeriode": { "Naam": "GEM" },
+      "CijferKolom": { "KolomKop": "Gemiddelde", "KolomSoort": 2 },
+      "TeltMee": true, "Vrijstelling": false, "Inhalen": false },
+    { "CijferStr": "6,0", "IsVoldoende": false, "DatumIngevoerd": "2026-06-15T10:00:00Z",
+      "Vak": { "Afkorting": "du", "Omschrijving": "duits" },
+      "CijferPeriode": { "Naam": "P1" },
+      "CijferKolom": { "KolomKop": "Tussenstand", "KolomSoort": 3 },
+      "TeltMee": true, "Vrijstelling": false, "Inhalen": false }
   ],
-  "TotalCount": 8
+  "TotalCount": 11
 }

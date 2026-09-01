@@ -17,12 +17,20 @@ export function weekdag(d) { return fDag.format(d).replace('.', ''); }
 export function isWeekend(d) { return weekdag(d) === 'za' || weekdag(d) === 'zo'; }
 export function kopDatum(d) { return `${weekdag(d)} ${fDagMaand.format(d)}`; }
 
+// Alleen wat er echt als een tag uitziet: </?letter... met quote-bewuste
+// attributen. Het oude <[^>]*> vrat gewone tekst op: "los op: x < 5 en y > 2"
+// werd "los op: x 2", want elke < gold als tagbegin. In een app vol wiskunde
+// is dat geen randgeval maar dagelijks huiswerk.
+const TAG = /<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[^\s=>]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*))?)*\s*\/?>/g;
+
 export function platteTekst(html) {
   if (!html) return '';
   return String(html)
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')
     .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<\/(p|div|li|tr|h\d)>/gi, ' ')
-    .replace(/<[^>]*>/g, '')
+    .replace(/<\/(p|div|li|tr|h[1-6])\s*>/gi, ' ')
+    .replace(TAG, '')
     .replace(/&nbsp;/gi, ' ')
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
@@ -107,7 +115,14 @@ export function bouwDagen(afspraken, { vandaag, aantalDagen = 28 } = {}) {
   const perDatum = new Map();
   for (const a of afspraken) {
     const n = normaliseer(a);
-    if (Number.isNaN(n.start.getTime())) continue;
+    if (Number.isNaN(n.start.getTime())) {
+      // Zonder geldige Start is er nergens een zinnig plekje voor deze afspraak.
+      // We slaan hem over, maar niet stilletjes: anders lijkt een kapotte rij
+      // op een gewoon vrij lesuur.
+      console.warn('rooster: afspraak overgeslagen, Start niet te parsen',
+        { id: veld(a, 'id'), start: veld(a, 'start'), vak: n.vak });
+      continue;
+    }
     const sleutel = lokaleDatum(n.start);
     if (!perDatum.has(sleutel)) perDatum.set(sleutel, []);
     perDatum.get(sleutel).push(n);
