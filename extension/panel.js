@@ -187,7 +187,8 @@ function technischeDetails(e) {
   if (!e) return null;
   const d = e.details && typeof e.details === 'object' ? e.details : null;
   if (d && d.pad) {
-    return d.status ? `HTTP ${d.status} op ${d.pad}` : `mislukt op ${d.pad}`;
+    const kop = d.status ? `HTTP ${d.status} op ${d.pad}` : `mislukt op ${d.pad}`;
+    return d.uitleg ? `${kop}\n${d.uitleg}` : kop;
   }
   return e.message ? String(e.message).slice(0, 120) : null;
 }

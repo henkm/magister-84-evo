@@ -317,4 +317,5 @@ button.secundair:hover { background: var(--band); }
   font-size: 12px;
   color: var(--gedempt);
   word-break: break-all;
+  white-space: pre-wrap;
 }

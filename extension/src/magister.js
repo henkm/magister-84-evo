@@ -53,9 +53,17 @@ export function maakClient({ tenant, token, haal = globalThis.fetch }) {
         { pad, status: 403 });
     }
     if (!antwoord.ok) {
+      // Een 400 draagt bijna altijd een uitleg in het antwoord: welke
+      // parameter Magister niet lust. Die weggooien maakt het onmogelijk om
+      // zonder de ontwikkelaarsconsole te achterhalen wat er mis is.
+      // Afgekapt, want het is bedoeld als aanwijzing, niet als logboek.
+      let uitleg = '';
+      try {
+        uitleg = String(await antwoord.text()).replace(/\s+/g, ' ').slice(0, 300);
+      } catch (e) { /* geen leesbare body, ook goed */ }
       throw new MagisterFout('magister-fout',
         `Magister antwoordde met ${antwoord.status}.`,
-        { pad, status: antwoord.status });
+        { pad, status: antwoord.status, uitleg });
     }
     try {
       return await antwoord.json();
