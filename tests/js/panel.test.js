@@ -175,3 +175,24 @@ test('nul cijfers is een geslaagde sync zonder los scheidingsteken', async () =>
   assert.equal(bij.trim().endsWith('·'), false, `"${bij}" bungelt`);
   assert.match(bij, /cijfers/);
 });
+
+test('een fout van Magister noemt welke call het was en welke status', async () => {
+  // Zonder deze regel is een 500 op afspraken niet te onderscheiden van een
+  // 500 op cijfers, en moet je de ontwikkelaarsconsole erbij halen om te zien
+  // waar het misging.
+  const { dom } = await paneelKlaar({ status: { '/afspraken': 500 } });
+  dom.knop('knop-sync').klik();
+  await totScherm(dom, 'fout');
+
+  const regel = dom.tekst('fout-techniek');
+  assert.match(regel, /HTTP 500/);
+  assert.match(regel, /afspraken/);
+  assert.ok(!regel.includes('geheim'), 'het token hoort hier nooit in');
+});
+
+test('ook een verlopen sessie noemt de call waarop het misging', async () => {
+  const { dom } = await paneelKlaar({ status: { '/api/account': 401 } });
+  await totScherm(dom, 'fout');
+  assert.equal(dom.el('fout-techniek').hidden, false);
+  assert.match(dom.tekst('fout-techniek'), /HTTP 401 op \/api\/account/);
+});

@@ -309,3 +309,12 @@ button.primair:hover:not(:disabled) { background: var(--hover); }
 button.primair:disabled { opacity: .45; cursor: default; }
 button.secundair { background: var(--vlak); color: var(--blauw); border-color: var(--rand); }
 button.secundair:hover { background: var(--band); }
+
+/* Technische regel op het foutscherm: welke call en welke status. Klein en
+   gedempt, maar wel zichtbaar - zonder dit valt een Magister-fout niet te
+   duiden zonder de ontwikkelaarsconsole erbij te halen. */
+.techniek {
+  font-size: 12px;
+  color: var(--gedempt);
+  word-break: break-all;
+}

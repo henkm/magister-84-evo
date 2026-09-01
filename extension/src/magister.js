@@ -40,13 +40,17 @@ export function maakClient({ tenant, token, haal = globalThis.fetch }) {
       throw new MagisterFout('netwerkfout',
         'Magister is niet bereikbaar. Staat je internetverbinding aan?', { pad });
     }
+    // De status gaat overal mee in de details: het foutscherm toont hem, en
+    // zonder die regel is een 401 op /api/account niet te onderscheiden van
+    // een 401 op de cijfers zonder de console erbij te halen.
     if (antwoord.status === 401) {
       throw new MagisterFout('sessie-verlopen',
-        'Je Magister-sessie is verlopen.', { pad });
+        'Je Magister-sessie is verlopen.', { pad, status: 401 });
     }
     if (antwoord.status === 403) {
       throw new MagisterFout('geen-toegang',
-        'Dit account mag deze gegevens niet opvragen.', { pad });
+        'Dit account mag deze gegevens niet opvragen.',
+        { pad, status: 403 });
     }
     if (!antwoord.ok) {
       throw new MagisterFout('magister-fout',

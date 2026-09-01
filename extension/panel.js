@@ -166,7 +166,8 @@ export async function sync() {
   } catch (e) {
     // Afbreken is geen fout: het scherm staat dan al op klaar.
     if (!(e instanceof Afgebroken)) {
-      ga({ type: 'fout', soort: soortVoorFout(e), bron: 'sync' });
+      ga({ type: 'fout', soort: soortVoorFout(e), bron: 'sync',
+        details: technischeDetails(e) });
     }
   } finally {
     if (transport) await transport.sluit();
@@ -177,6 +178,19 @@ export async function sync() {
 // leesPakket stelt de enige diagnose die hier echt helpt; deze tekst is de
 // draad terug naar de foutsoort die dat op het scherm zet.
 const GEEN_ANTWOORD = /geen antwoord van de rekenmachine/;
+
+/**
+ * Een korte, feitelijke regel over wat er misging: welke call, welke status.
+ * Nooit het token - MagisterFout.details draagt alleen het pad en de status.
+ */
+function technischeDetails(e) {
+  if (!e) return null;
+  const d = e.details && typeof e.details === 'object' ? e.details : null;
+  if (d && d.pad) {
+    return d.status ? `HTTP ${d.status} op ${d.pad}` : `mislukt op ${d.pad}`;
+  }
+  return e.message ? String(e.message).slice(0, 120) : null;
+}
 
 function soortVoorFout(e) {
   // Een fout die zelf weet wat hij is, wint: MagisterFout, en alles waar
@@ -337,6 +351,9 @@ function toonFout(t) {
   $('fout-body').textContent = f.body;
   $('fout-stap').textContent = f.stap;
   $('knop-fout').textContent = foutknop(t).tekst;
+  const techniek = t.fout.details;
+  $('fout-techniek').hidden = !techniek;
+  $('fout-techniek').textContent = techniek || '';
   const pct = t.fout.soort === 'verbinding-afgebroken' ? percentage(t) : null;
   $('fout-baan').hidden = pct === null;
   $('fout-baan-tekst').hidden = pct === null;
@@ -455,7 +472,8 @@ export async function start() {
       kinderen = [kind];
     }
   } catch (e) {
-    ga({ type: 'fout', soort: soortVoorFout(e), bron: 'start' });
+    ga({ type: 'fout', soort: soortVoorFout(e), bron: 'start',
+      details: technischeDetails(e) });
     return;
   }
   keuze = kind;
