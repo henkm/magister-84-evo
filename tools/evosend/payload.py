@@ -39,11 +39,11 @@ def name_to_tichars(name):
     for ch in name:
         if "A" <= ch <= "Z":
             # 0xE800 (59392): private-use area offset for letters A-Z
-            # See docs/superpowers/specs/2026-08-31-magister-ti84-evo-design.md section 4
+            # See the transfer-protocol section in README.md
             out += chr(ord(ch) - 65 + 59392)
         elif "0" <= ch <= "9":
             # 0xE401 (58369): private-use area offset for digits 0-9
-            # See docs/superpowers/specs/2026-08-31-magister-ti84-evo-design.md section 4
+            # See the transfer-protocol section in README.md
             out += chr(ord(ch) - 48 + 58369)
         else:
             raise ValueError("naam %r bevat een teken dat niet kan: %r"
@@ -74,7 +74,7 @@ def build_container(name, source):
     nb = name.encode()
     # 18: 17 bytes of fixed fields (4 header + 4 total size + 4 name len + 2 source len + 2 type + 1 null)
     # plus 1 byte of trailing padding added by the fill-to-total step below.
-    # See docs/superpowers/specs/2026-08-31-magister-ti84-evo-design.md section 4
+    # See the transfer-protocol section in README.md
     total = len(source) + len(nb) + 18
     out = (bytes([19, 1, 0, 0]) + _u32le(total) + _u32le(len(nb)) + nb
            + bytes([0]) + bytes([len(source) & 255, (len(source) >> 8) & 255])
@@ -87,7 +87,7 @@ def build_container(name, source):
 def payload_checksum(data):
     # Excludes 3 words (6 bytes) from checksum if length is even, 1 word (2 bytes) if odd.
     # These values are from the spec capture; the common case (even) skips the final checksum itself.
-    # See docs/superpowers/specs/2026-08-31-magister-ti84-evo-design.md section 4
+    # See the transfer-protocol section in README.md
     words = max(0, (len(data) >> 1) - (3 if len(data) % 2 == 0 else 1))
     n = 0
     for i in range(words):

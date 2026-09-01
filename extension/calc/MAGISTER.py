@@ -715,7 +715,7 @@ def main():
                 # terwijl de lijst weer bij vak 1 begint.
                 scherm, vak, vak_scroll = "vakken", 0, 0
             elif scherm == "vakken":
-                # Ruling (progress.md): CLEAR vanuit vakken gaat net als
+                # CLEAR vanuit vakken gaat net als
                 # CLEAR vanuit dag terug naar vandaag, dus ook dag=0 en de
                 # selectie op de eerste lesrij -- niet alleen scroll en
                 # vak_scroll op 0, want dan bleef je op de dag en de

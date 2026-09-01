@@ -1,5 +1,4 @@
-/* Vormgeving van het extensiepaneel. Volgt docs/design/2026-08-31-ontwerp-
-   overdracht.md, paragraaf "Chrome-extensie". Donkere modus wisselt alleen de
+/* Vormgeving van het extensiepaneel. Donkere modus wisselt alleen de
    kleurtokens; structuur en teksten blijven identiek. */
 
 :root {

@@ -1260,8 +1260,8 @@ def test_main_key_2_resets_the_subject_selection(tekeningen):
     assert ("draw_rect", 0, M.LIJST_Y, 317, 20) in beeldjes[4]
 
 def test_main_clear_from_vakken_returns_to_today_and_resets_selection(tekeningen):
-    # Carry-forward uit progress.md: "CLEAR vanuit vakken moet ook dag=0 en
-    # selectie=eerste lesrij zetten." De code zette alleen scroll en
+    # CLEAR vanuit vakken moet ook dag=0 en selectie=eerste lesrij zetten.
+    # De code zette alleen scroll en
     # vak_scroll terug op 0 en liet dag en selectie staan: sta je op een
     # andere dag met een late les geselecteerd, dan landt CLEAR vanuit
     # vakken weer op die dag met de lijst bovenaan (scroll=0) en de

@@ -2,6 +2,9 @@ bin/
 __pycache__/
 .env
 node_modules/
+.pytest_cache/
+dist/
 
-# worktrees van review-agents (harness-scratch)
+# werkbestanden van agents (harness-scratch)
 .claude/worktrees/
+.superpowers/

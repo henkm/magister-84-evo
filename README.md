@@ -69,6 +69,43 @@ Een programma op de Evo heeft een 16-bits lengteveld: `MAGDATA` mag hooguit
   meldt tot hoeveel dagen het rooster is ingekort. Alleen als zelfs een enkele
   dag niet past, stopt de sync met een fout.
 
+## Het protocol naar de rekenmachine
+
+Nagebouwd uit `evo-send.min.js` van ti84calcwiz.com en daarna tegen het echte
+apparaat aan gelegd. Het is **Web Serial**, geen WebUSB: `navigator.serial`
+met een filter op VID `0x0451` en PID `0xE018`, 115200 baud.
+
+De framing is Kermit:
+
+- Pakket: `[SOH 0x01][len+32][seq+32][type][data][checksum][CR]`.
+- Is `len` groter dan 80, of is het een `F`-pakket, dan wordt de lengtebyte 32
+  en volgen er twee lengtetekens base-95 met een eigen header-checksum.
+- Checksum: `(32 + ((som + ((som & 0xC0) >> 6)) & 63)) & 255`.
+- Escaping: bytes onder 32, plus 127 en 255, worden `#` gevolgd door
+  `64 ^ byte`; een letterlijke `#` of `~` krijgt er een `#` voor.
+- Volgorde: `S` (send-init) -> `F` -> `A` -> `D`* -> `Z` -> `B`, elk met een
+  `Y` terug. Een `E` betekent fout.
+- Een datapakket bevat hoogstens 2000 **ge-escapete** bytes, en nooit een
+  escape-paar dat doormidden geknipt is.
+
+De bestandsnaam in het `F`-pakket is een URL:
+`hh01/xfr/var?name=<naam>&type=15&memtarget=0&policy=1` -- `type=15` voor een
+Python-programma, `type=2` voor TI-BASIC.
+
+De payload is CBOR: een map met `metaData` (`type`, `version`, `flags`, en
+`name` als UTF-16LE), `version`, `size` en `data`, met daarachter een 16-bits
+XOR-checksum over die map. In `data` zit de programmacontainer --
+`[0x13 0x01 0x00 0x00]`, `u32` totale lengte, `u32` naamlengte, de naam, een
+nulbyte, `u16` bronlengte, `[0x00 0x02]`, de broncode -- aangevuld met nullen
+tot de totale lengte.
+
+Programmanamen zijn 1 tot 8 tekens uit A-Z en 0-9 en beginnen met een letter.
+Voor de URL en de metadata gaan ze naar TI's private use area: A-Z vanaf
+`0xE800`, 0-9 vanaf `0xE401`.
+
+**Web Serial werkt niet in een service worker.** De poort moet in een pagina
+leven, en dat bepaalt de hele opbouw van de extensie.
+
 ## Wat er met je token gebeurt
 
 De extensie leest het toegangstoken uit de `sessionStorage` van je eigen
@@ -76,6 +113,36 @@ Magister-tab en gebruikt het alleen in de `Authorization`-header van de
 verzoeken aan Magister. Het gaat niet naar `chrome.storage`, niet naar de
 console en niet in een foutmelding. In `chrome.storage.local` staan alleen
 `kindId`, `kindNaam` en `laatsteSync`.
+
+## Wat Magister eigenaardig doet
+
+Vijf dingen die je alleen op de tast vindt, en die elk een keer een sync
+hebben gekost.
+
+**Twee API-generaties leven naast elkaar.** `/api/personen/...` antwoordt in
+PascalCase (`Items`, `TotalCount`), `/api/leerlingen/...` in camelCase
+(`items`, `totalCount`). De client vangt beide vormen af.
+
+**`actievePerioden` moet een waarde hebben.** Leeg meesturen levert HTTP 400
+met "The value '' is invalid." -- geen uitleg waar je iets aan hebt, alleen
+een 400 op een call die er verder goed uitziet.
+
+**`peildatum` is verplicht zodra het schooljaar is afgesloten.** Zonder die
+parameter geeft het cijferoverzicht `{"Items": [], "TotalCount": 0}` terug:
+status 200, geen fout, geen waarschuwing, gewoon niets. Voor het lopende jaar
+moet hij er juist niet in.
+
+**Tijden zijn echte UTC.** `Start` komt binnen als `2026-09-01T07:45:00Z`
+terwijl dat lesuur 2 is. Rauw gelezen loopt de schooldag van 07:00 tot 14:30,
+een dag die niet bestaat. De extensie rekent om naar Europe/Amsterdam en
+stuurt kant-en-klare kloktijden mee; de rekenmachine heeft geen
+tijdzonedatabase.
+
+**Cijfers zijn niet altijd getallen.** In een steekproef van 172 rijen: 135
+kommagetallen, 16 gehele, 17 keer tekst (`g`, `o`, `vr`) en 4 leeg. Sorteren,
+rekenen en kleuren moeten daar alle drie tegen kunnen. De gemiddeldes komen
+van Magister zelf, uit de berekende kolommen en de periode `GEM`; zelf wegen
+naspelen zou de schoolregels net anders raden.
 
 ## Mappen
 
@@ -142,6 +209,30 @@ Open daarna `http://localhost:8765/panel.html?scherm=klaar`. De schermen zijn
 laatste kiest `&soort=` de fout, bijvoorbeeld
 `?scherm=fout&soort=geen-rekenmachine`. De soorten staan in `FOUTEN` in
 `extension/src/stroom.js`.
+
+## De lettermaat op het scherm
+
+De hele layout hangt aan twee gemeten getallen, en allebei weken ze af van wat
+we eerst aannamen.
+
+**Een teken is 10 px breed en er passen er 32 op een regel.** Gemeten met een
+liniaal van 48 verschillende tekens vanaf x=0: het laatste volledig zichtbare
+teken is nummer 32, en 319 / 32 = 9,97. Bij de aangenomen 8 px waren het er 39
+geweest, en elke rechts uitgelijnde of gecentreerde tekst stond dus verkeerd.
+
+**`draw_text(x, y, s)` zet het letterblok op `[y-18, y-3]`, en dat blok is 16
+px hoog.** De kleinste regelafstand zonder dat staarten elkaar raken is daarmee
+16 px, niet de aangenomen 11. Drie metingen op het apparaat wijzen alle drie
+precies die ankerpositie aan en geen enkele andere. De app rekent daarom
+overal met de **bovenkant** van het letterblok, want dat is wat je tegen een
+balk aan uitlijnt.
+
+`tests/layoutregels.py` bewaakt beide getallen met vier regels die over een
+heel beeld gaan in plaats van over een losse aanroep: alles blijft binnen het
+scherm, tekstblokken overlappen elkaar niet, tekst staat op een andere kleur
+dan zichzelf, en tekst blijft binnen het vlak waar hij bij hoort. Ze bestaan
+omdat de suite eerder fouten liet passeren die op het apparaat meteen te zien
+waren.
 
 ## Wat het apparaat ons heeft geleerd
 
