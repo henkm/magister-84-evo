@@ -33,6 +33,22 @@ test('het item is een kloon, dus het draagt de klassen van zijn buren', () => {
   assert.equal(ons.querySelector('span').classList.contains('caption'), true);
 });
 
+test('het icoonvakje houdt de maten van de buren', () => {
+  // De uitlijning van het bijschrift hangt aan de breedte van dat vakje, en
+  // die komt uit de klassen van Magister zelf. Een eigen breedte opleggen
+  // schuift de tekst op, en dat is precies waaraan je ziet dat iets niet van
+  // de app zelf komt.
+  const doc = nepMagister();
+  plaatsItem(doc, () => {});
+  const buur = sjabloon(doc.menu()).querySelector('i');
+  const ons = onsItem(doc).querySelector('i');
+  assert.equal(ons.className, buur.className,
+    'het icoonvakje heeft niet meer dezelfde klassen als dat van de buren');
+  assert.equal(ons.style.width, undefined, 'geen eigen breedte opleggen');
+  assert.equal(ons.style.color, 'transparent', 'het oude glyph blijft zichtbaar');
+  assert.match(ons.style.backgroundImage, /^url\("data:image\/svg/);
+});
+
 test('de toestand van het item waarvan we kopieerden gaat er af', () => {
   // Het eerste item is "active"; zonder opruimen zou ons item er ook
   // geselecteerd uitzien, en met ng-hide zelfs onzichtbaar zijn.

@@ -17,15 +17,22 @@ export const MENU_KIEZER = 'ul.main-menu';
 export const LABEL = 'Rekenmachine';
 export const TITEL = 'Rooster en cijfers naar de TI-84 sturen';
 
-// De iconen in die balk zijn wit; dit is hetzelfde blokkerige M-met-punt als
-// het icoon van de extensie. Bewust geen Font Awesome-klasse: welke stijlen
-// Magister van dat lettertype laadt weten we niet, en een ontbrekend glyph
-// levert een leeg vierkantje op.
+// Een rekenmachine in dezelfde stijl als de buren: dunne witte lijnen, geen
+// vlak. Bewust geen logo -- dit is een menu-item van Magister, geen reclame --
+// en bewust geen Font Awesome-klasse: welke stijlen Magister van dat lettertype
+// laadt weten we niet, en een ontbrekend glyph geeft een leeg vierkantje.
 const ICOON = 'data:image/svg+xml,' + encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 24">'
-  + '<path d="M3 20V4h3.4l5.1 7.9L16.6 4H20v16h-3.4v-9.6l-4.1 6.2h-.9'
-  + 'l-4.2-6.2V20H3z" fill="#ffffff"/>'
-  + '<circle cx="22.6" cy="18.6" r="2.4" fill="#f5820b"/></svg>');
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"'
+  + ' stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round">'
+  + '<rect x="5" y="2.2" width="14" height="19.6" rx="2.4"/>'
+  + '<rect x="8" y="5.2" width="8" height="3.6" rx="1"/>'
+  + '<g fill="#ffffff" stroke="none">'
+  + '<circle cx="8.7" cy="12.6" r=".95"/><circle cx="12" cy="12.6" r=".95"/>'
+  + '<circle cx="15.3" cy="12.6" r=".95"/>'
+  + '<circle cx="8.7" cy="15.8" r=".95"/><circle cx="12" cy="15.8" r=".95"/>'
+  + '<circle cx="15.3" cy="15.8" r=".95"/>'
+  + '<circle cx="8.7" cy="19" r=".95"/><circle cx="12" cy="19" r=".95"/>'
+  + '<circle cx="15.3" cy="19" r=".95"/></g></svg>');
 
 // active/ng-hide horen bij het item waarvan we kopieerden, niet bij het onze.
 const TOESTANDSKLASSEN = ['active', 'expanded', 'children', 'highlight-menu',
@@ -74,13 +81,13 @@ export function bouwItem(menu, opKlik) {
 
   const icoon = li.querySelector('i');
   if (icoon) {
-    // De marges komen van een regel op `i` in het menu zelf en blijven dus
-    // staan; alleen het glyph wordt vervangen.
-    icoon.className = 'ti84-icoon';
-    icoon.style.display = 'inline-block';
-    icoon.style.width = '1.25em';
-    icoon.style.height = '1.25em';
-    icoon.style.verticalAlign = 'middle';
+    // De klassen van Magister blijven staan. Daar hangt de breedte van het
+    // icoonvakje aan, en dus waar het bijschrift begint: een eigen breedte
+    // opleggen (dat deed dit eerst) schoof de tekst naar links en dat is
+    // precies wat je ziet als iets niet van de app zelf is. Het glyph wordt
+    // onzichtbaar gemaakt en de tekening komt er als achtergrond in, in
+    // hetzelfde vakje.
+    icoon.style.color = 'transparent';
     icoon.style.backgroundImage = 'url("' + ICOON + '")';
     icoon.style.backgroundRepeat = 'no-repeat';
     icoon.style.backgroundPosition = 'center';
