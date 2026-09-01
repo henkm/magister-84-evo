@@ -538,13 +538,14 @@ def main():
 
     scherm = "dag"
     dag, selectie, scroll = 0, eerste_les(DAGEN[0][3]), 0
+    detail_scroll = 0
     vak, vak_scroll = 0, 0
 
     while True:
         if scherm == "dag":
             toon_dag(dag, selectie, scroll)
         elif scherm == "detail":
-            toon_lesdetail(dag, selectie, scroll)
+            toon_lesdetail(dag, selectie, detail_scroll)
         elif scherm == "vakken":
             toon_vakken(vak, vak_scroll)
         else:
@@ -565,8 +566,13 @@ def main():
                 selectie = eerste_les(DAGEN[0][3])
             elif scherm == "cijfers":
                 scherm, vak_scroll = "vakken", 0
-            else:                       # detail en vakken vallen terug op dag
+            elif scherm == "vakken":
                 scherm, scroll, vak_scroll = "dag", 0, 0
+            else:                       # scherm == "detail"
+                # scroll is van het dagscherm en blijft hier onaangeroerd:
+                # de lijstpositie moet exact zijn zoals de gebruiker hem
+                # achterliet, ook als selectie op de laatste rij stond.
+                scherm = "dag"
         elif k == K_1:
             scherm, scroll = "dag", 0
         elif k == K_2:
@@ -581,7 +587,7 @@ def main():
                 # omschrijving, dus de huiswerk-scroll begint weer bovenaan.
                 doel = volgende_les(rijen, selectie - 1, -1)
                 if doel >= 0:
-                    selectie, scroll = doel, 0
+                    selectie, detail_scroll = doel, 0
         elif k == K_RECHTS:
             if scherm == "dag":
                 dag = min(len(DAGEN) - 1, dag + 1)
@@ -589,17 +595,18 @@ def main():
             elif scherm == "detail":
                 doel = volgende_les(rijen, selectie + 1, 1)
                 if doel >= 0:
-                    selectie, scroll = doel, 0
+                    selectie, detail_scroll = doel, 0
         elif k == K_OMLAAG:
             # Elk scherm heeft zijn eigen arm: het detailscherm scrolt door
-            # het huiswerk (scroll), niet door de cijferlijst (vak_scroll).
+            # het huiswerk (detail_scroll), niet door de cijferlijst
+            # (vak_scroll).
             if scherm == "dag":
                 doel = volgende_les(rijen, selectie + 1, 1)
                 if doel >= 0:
                     selectie = doel
                     scroll = max(scroll, selectie - ZICHTBAAR + 1)
             elif scherm == "detail":
-                scroll += 1
+                detail_scroll += 1
             elif scherm == "vakken":
                 vak = min(len(VAKKEN) - 1, vak + 1)
                 vak_scroll = max(vak_scroll, vak - 5)
@@ -612,7 +619,7 @@ def main():
                     selectie = doel
                     scroll = min(scroll, selectie)
             elif scherm == "detail":
-                scroll = max(0, scroll - 1)
+                detail_scroll = max(0, detail_scroll - 1)
             elif scherm == "vakken":
                 vak = max(0, vak - 1)
                 vak_scroll = min(vak_scroll, vak)
@@ -620,7 +627,7 @@ def main():
                 vak_scroll = max(0, vak_scroll - 1)
         elif k == K_ENTER:
             if scherm == "dag" and rijen and rijen[selectie][L_SOORT] == "les":
-                scherm, scroll = "detail", 0
+                scherm, detail_scroll = "detail", 0
             elif scherm == "vakken" and VAKKEN:
                 scherm, vak_scroll = "cijfers", 0
 

@@ -707,8 +707,8 @@ def test_main_key_1_jumps_directly_back_to_dag(tekeningen):
 
 def test_main_detail_down_arrow_scrolls_the_homework(tekeningen):
     # Het detailscherm wordt getekend als toon_lesdetail(dag, selectie,
-    # scroll): de pijlen horen dus scroll te verzetten en niet vak_scroll,
-    # anders is huiswerk voorbij regel 5 onbereikbaar.
+    # detail_scroll): de pijlen horen dus detail_scroll te verzetten en niet
+    # vak_scroll, anders is huiswerk voorbij regel 5 onbereikbaar.
     origineel_dagen, origineel_key = M.DAGEN, M.wait_key
     lang_huiswerk = ("lees hoofdstuk 1 tot en met 9 helemaal door en maak "
                      "alle opgaven van de herhalingstoets grondig ") * 3
@@ -734,6 +734,54 @@ def test_main_detail_down_arrow_scrolls_the_homework(tekeningen):
     assert lichaam[2] == alle_regels[1:6], "omlaag scrolt het huiswerk niet"
     assert alle_regels[5] not in lichaam[1], "regel 6 was al zonder scrollen zichtbaar"
     assert lichaam[3] == alle_regels[0:5], "omhoog scrolt niet terug"
+
+def test_main_clear_from_detail_keeps_the_day_scroll_position(tekeningen):
+    # Dag 0 heeft 6 rijen (5 lessen + 1 tussenuur) en ZICHTBAAR is 5: de
+    # laatste lesregel (rij-index 5, geschiedenis) komt pas in beeld bij
+    # scroll=1. `scroll` en het detailscherm deelden vroeger één variabele:
+    # ENTER en de pijlen op het detailscherm overschreven dan de 1 met 0, en
+    # bij terugkeer met CLEAR viel de selectie (nog steeds rij 5) buiten het
+    # zichtbare venster - geen selectiekader, terwijl de gebruiker niets aan
+    # de lijst had veranderd. Vier keer omlaag zet de selectie op rij 5
+    # (rij-index 1 is een tussenuur en telt niet mee), ENTER opent hem, één
+    # keer omlaag scrolt het huiswerk, en CLEAR hoort exact op de plek terug
+    # te komen waar de gebruiker gebleven was.
+    origineel = M.wait_key
+    M.wait_key = _toetsen(M.K_OMLAAG, M.K_OMLAAG, M.K_OMLAAG, M.K_OMLAAG,
+                          M.K_ENTER, M.K_OMLAAG, M.K_CLEAR, M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.wait_key = origineel
+    beeldjes, _ = _beeldjes(tekeningen)
+    dagscherm_na_terugkeer = beeldjes[-1]
+    assert any(c[0] == "draw_rect" for c in dagscherm_na_terugkeer), \
+        "geen selectiekader na CLEAR terug vanaf het detailscherm"
+
+def test_main_detail_scroll_still_works_with_its_own_variable(tekeningen):
+    # Keerzijde van de vorige test: detail_scroll moet nog steeds doen
+    # waarvoor hij bestaat, anders is hij alleen maar toegevoegd en ongebruikt.
+    origineel_dagen, origineel_key = M.DAGEN, M.wait_key
+    lang_huiswerk = ("lees hoofdstuk 1 tot en met 9 helemaal door en maak "
+                     "alle opgaven van de herhalingstoets grondig ") * 3
+    rij = ("les", "10:30", "12:00", "3-4", "natuurkunde", "206", "Bos (BOS)",
+           "normaal", "HW", lang_huiswerk, "")
+    M.DAGEN = [("2026-09-01", "di 01-09", "vandaag", [rij])]
+    alle_regels = M.wrap(lang_huiswerk, 307)
+    M.wait_key = _toetsen(M.K_ENTER, M.K_OMLAAG, M.K_CLEAR, M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.DAGEN, M.wait_key = origineel_dagen, origineel_key
+
+    beeldjes, _ = _beeldjes(tekeningen)
+    # dag, detail(detail_scroll 0), detail(detail_scroll 1), dag
+    assert len(beeldjes) == 4
+    lichaam = [[c[3] for c in b
+                if c[0] == "draw_text" and c[1] == 6 and 101 <= c[2] <= 149]
+               for b in beeldjes]
+    assert lichaam[1] == alle_regels[0:5]
+    assert lichaam[2] == alle_regels[1:6], "detail_scroll scrollt het huiswerk niet"
 
 def test_main_detail_arrows_walk_between_lessons(tekeningen):
     # De voetbalk van het detailscherm belooft "<> les": links en rechts
