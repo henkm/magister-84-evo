@@ -386,6 +386,17 @@ function naarKindKiezen() {
   ga({ type: 'anderKind' });
 }
 
+// window.close() sluit alleen een venster dat een script zelf heeft geopend;
+// een tabblad uit chrome.tabs.create hoort daar niet bij. Het paneel sluit
+// daarom zijn eigen tabblad, en valt terug op window.close() voor de demostand.
+async function sluitPaneel() {
+  if (inExtensie && chrome.tabs.getCurrent) {
+    const tab = await chrome.tabs.getCurrent();
+    if (tab) { await chrome.tabs.remove(tab.id); return; }
+  }
+  window.close();
+}
+
 function openMagister() {
   if (!inExtensie) return;
   chrome.tabs.create({ url: MAGISTER_URL });
@@ -429,7 +440,7 @@ const ACTIES = {
   },
   poort: vraagPoort,
   anderKind: naarKindKiezen,
-  sluiten: () => window.close(),
+  sluiten: sluitPaneel,
   // dezelfde grens als knop-sync: in de demostand is er geen chrome.* om mee
   // te praten
   herstart: () => { if (inExtensie) start(); },
@@ -457,7 +468,7 @@ function koppelKnoppen() {
     afbreken = true;
     ga({ type: 'afbreken' });
   });
-  $('knop-sluiten').addEventListener('click', () => window.close());
+  $('knop-sluiten').addEventListener('click', sluitPaneel);
   $('knop-fout').addEventListener('click', () => ACTIES[foutknop(toestand).actie]());
 }
 

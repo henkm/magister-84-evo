@@ -246,3 +246,15 @@ test('een eerder toegestane vreemde poort wint niet van de rekenmachine', async 
   assert.equal(vreemd.aantalOpen, 0, 'de vreemde poort hoort dicht te blijven');
   assert.ok(echt.geschreven.length > 8, 'er is niets naar de TI gegaan');
 });
+
+test('Klaar sluit het eigen tabblad, niet niets', async () => {
+  // window.close() werkt niet op een tabblad dat de extensie zelf heeft
+  // geopend; dan doet de knop stilzwijgend niets.
+  const { omgeving, dom } = await paneelKlaar();
+  dom.knop('knop-sync').klik();
+  await totScherm(dom, 'gereed');
+  dom.knop('knop-sluiten').klik();
+  for (let i = 0; i < 5; i++) await adem();
+  assert.deepEqual(omgeving.geslotenTabs, [99]);
+  assert.ok(!omgeving.gesloten, 'window.close() is de verkeerde weg in een tab');
+});

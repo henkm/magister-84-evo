@@ -179,8 +179,9 @@ export function nepOmgeving({
   const geopendeTabs = [];
   // keuzes houdt bij waarmee requestPort is aangeroepen: met of zonder filter.
   const keuzes = [];
-  const omgeving = { dom, opgevraagd, geopendeTabs, opgeslagen, poort, poorten,
-    status, keuzes, keuzeFout };
+  const geslotenTabs = [];
+  const omgeving = { dom, opgevraagd, geopendeTabs, geslotenTabs, opgeslagen,
+    poort, poorten, status, keuzes, keuzeFout };
 
   const antwoord = (json, code = 200) => ({
     status: code, ok: code < 400, json: async () => json,
@@ -190,6 +191,9 @@ export function nepOmgeving({
     tabs: {
       query: async () => tabs,
       create: async ({ url }) => { geopendeTabs.push(url); },
+      // Het paneel draait in een eigen tabblad en sluit dat zelf.
+      getCurrent: async () => ({ id: 99, url: 'chrome-extension://nep/panel.html' }),
+      remove: async (id) => { omgeving.geslotenTabs.push(id); },
     },
     scripting: {
       executeScript: async () => [{ result: token ? { token } : null }],

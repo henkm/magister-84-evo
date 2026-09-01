@@ -37,7 +37,8 @@
 
 body {
   width: 420px;
-  margin: 0 auto;
+  /* Het paneel is een tabblad: zonder marge plakt de kaart tegen de bovenrand. */
+  margin: 24px auto;
   font: 14px/1.45 Archivo, "Helvetica Neue", Arial, sans-serif;
   color: var(--donker);
   background: var(--vlak);
