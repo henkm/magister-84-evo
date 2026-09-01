@@ -3,6 +3,7 @@
 Dit is de enige test die het datacontract tussen de twee kanten echt afdwingt.
 Verandert een van beide zonder de ander, dan faalt hij hier.
 """
+import json
 import pathlib
 import shutil
 import subprocess
@@ -111,3 +112,55 @@ def test_de_broncode_is_geldige_python_zonder_verrassingen(magdata_bron):
     # geen tekens die het schermlettertype niet kent
     for ch in magdata_bron:
         assert ch == "\n" or ch == "·" or 32 <= ord(ch) <= 126, repr(ch)
+
+
+# --- de twee tests hieronder bewaken de fixture, niet de code ---
+#
+# Twee van de regels hierboven waren leeg omdat de fixture te braaf was: geen
+# vaknaam die de rechterrand haalde, geen teken boven ASCII 126 en nergens een
+# dubbel aanhalingsteken. Beide tests slaagden toen ook met kapotte code. Wie
+# de fixture inkort, moet dat hier merken -- niet pas op het apparaat.
+
+def _alle_teksten(x):
+    if isinstance(x, str):
+        yield x
+    elif isinstance(x, dict):
+        for v in x.values():
+            yield from _alle_teksten(v)
+    elif isinstance(x, list):
+        for v in x:
+            yield from _alle_teksten(v)
+
+
+def test_de_fixture_houdt_de_schermrandregel_scherp(app):
+    """Er moet een les zonder chip zijn waarvan het vak van het scherm loopt.
+
+    Een lesregel met een chip botst bij een lang vak eerst tegen die chip, en
+    dan is het de overlapregel die aanslaat. Alleen een chiploze regel bereikt
+    binnen_scherm(): daar is het vakbudget de hele kolom tot de rechterrand.
+    """
+    lang = []
+    for _, _, _, rijen in app.DAGEN:
+        for rij in rijen:
+            if rij[app.L_SOORT] != "les" or rij[app.L_CHIP]:
+                continue
+            if app.TEKST_X + app.text_width(rij[app.L_VAK]) > app.SCREEN_W:
+                lang.append(rij[app.L_VAK])
+    assert lang, ("geen chiploze les met een vaknaam die voorbij de rechterrand "
+                  "reikt: binnen_scherm() heeft niets meer te controleren")
+
+
+def test_de_fixture_bevat_tekens_die_de_generator_moet_opruimen(magdata_bron):
+    """De tekenscan hierboven kijkt alleen iets na als er iets te scannen is."""
+    rauw = json.loads((WORTEL / "tests" / "fixtures" / "afspraken.json")
+                      .read_text(encoding="utf-8"))
+    waarden = list(_alle_teksten(rauw))
+    assert any(ord(ch) > 126 for w in waarden for ch in w), \
+        "de fixture heeft geen enkel teken buiten ASCII: veiligeTekst() " \
+        "wordt door de tekenscan niet geraakt"
+    assert any('"' in w for w in waarden), \
+        "de fixture heeft nergens een dubbel aanhalingsteken: pyStr() wordt " \
+        "door de tekenscan niet geraakt"
+    # en de generator laat er in de uitvoer ook echt iets van zien
+    assert '\\"' in magdata_bron, "geen ontsnapt aanhalingsteken in MAGDATA"
+

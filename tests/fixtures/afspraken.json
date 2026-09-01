@@ -43,7 +43,36 @@
       "Lokatie": "221", "Status": 1, "InfoType": 0, "Inhoud": null,
       "Vakken": [{ "Naam": "biologie" }],
       "Docenten": [{ "Naam": "Peters", "Docentcode": "PTS" }],
-      "Lokalen": [{ "Naam": "221" }] }
+      "Lokalen": [{ "Naam": "221" }] },
+
+    { "Id": 8, "Start": "2026-09-07T07:00:00Z", "Einde": "2026-09-07T07:45:00Z",
+      "LesuurVan": 1, "LesuurTotMet": 1,
+      "Omschrijving": "natuurwetenschappen en techniek",
+      "Lokatie": "A1.14", "Status": 1, "InfoType": 0, "Inhoud": null,
+      "Vakken": [{ "Naam": "natuurwetenschappen en techniek" }],
+      "Docenten": [{ "Naam": "Aalbers", "Docentcode": "AAL" }],
+      "Lokalen": [{ "Naam": "A1.14" }] },
+    { "Id": 9, "Start": "2026-09-07T07:45:00Z", "Einde": "2026-09-07T08:30:00Z",
+      "LesuurVan": 2, "LesuurTotMet": 2, "Omschrijving": "maatschappijleer",
+      "Lokatie": "B2.07", "Status": 1, "InfoType": 1,
+      "Inhoud": "<p>lees het artikel over de rechtsstaat</p>",
+      "Vakken": [{ "Naam": "maatschappijleer" }],
+      "Docenten": [{ "Naam": "van der Meulen-Hoogeveen", "Docentcode": "VDM" }],
+      "Lokalen": [{ "Naam": "B2.07" }] },
+    { "Id": 10, "Start": "2026-09-07T08:30:00Z", "Einde": "2026-09-07T09:15:00Z",
+      "LesuurVan": 3, "LesuurTotMet": 3, "Omschrijving": "wiskunde B",
+      "Lokatie": "118", "Status": 1, "InfoType": 1,
+      "Inhoud": "leer paragraaf 3 \u2013 de \"gulden snede\" \u2013 en Fermat\u2019s laatste stelling",
+      "Vakken": [{ "Naam": "wiskunde B" }],
+      "Docenten": [{ "Naam": "M\u00fcller", "Docentcode": "MUL" }],
+      "Lokalen": [{ "Naam": "118" }] },
+    { "Id": 11, "Start": "2026-09-07T09:15:00Z", "Einde": "2026-09-07T10:00:00Z",
+      "LesuurVan": 4, "LesuurTotMet": 4, "Omschrijving": "praktische opdracht",
+      "Lokatie": "206", "Status": 1, "InfoType": 1,
+      "Inhoud": "<p>Werk de practicumverslagen van hoofdstuk 4 helemaal uit: noteer per proef de opstelling, de meetwaarden in een tabel met eenheden, de grafiek met foutbalken en een conclusie van minstens vijf zinnen. Lever het verslag digitaal in v\u00f3\u00f3r vrijdag 17:00 en neem een uitgeprinte versie mee naar de les, want die bespreken we samen.</p>",
+      "Vakken": [{ "Naam": "scheikunde" }],
+      "Docenten": [{ "Naam": "Bos", "Docentcode": "BOS" }],
+      "Lokalen": [{ "Naam": "206" }] }
   ],
-  "TotalCount": 7
+  "TotalCount": 11
 }

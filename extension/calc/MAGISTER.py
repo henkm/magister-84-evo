@@ -158,6 +158,9 @@ def contextbalk(links, rechts="", verouderd=False):
     vlak(0, 22, 319, 17, WIT)
     if links:
         tekst(6, 23, links, BLAUW)
+    # Deze tak is voorlopig dood: de generator schrijft GESYNCT_UREN altijd als
+    # 0, want het veld weglaten breekt de import (en dus elk scherm), en een
+    # datum bewaren helpt niet op een apparaat zonder klok.
     if verouderd:
         vlak(169, 26, 6, 6, ORANJE)
     if rechts:
@@ -326,8 +329,9 @@ MED_Y = 96
 MED_W = 271
 MED_H = 40
 MED_TEKST_X = 40
-# Tot de rechterrand van de kaart. Geen van beide regels had een budget, en
-# "nog geen cijfers in " + PERIODE groeit mee met het aantal perioden.
+# Tot de rechterrand van de kaart: 255 px, oftewel 25 tekens. Geen van beide
+# regels had een budget, en "volgende lesdag: " + de dagkop komt daar dicht
+# tegenaan. Wie hier een regel bij zet, telt hem eerst na tegen deze maat.
 MED_TEKST_W = MED_X + MED_W - MED_TEKST_X
 # Verticaal gecentreerd: 40 px kaart om 32 px tekst is 4 boven en 4 onder.
 # Het stond op 102/118 - 6 boven en 2 onder - als enige blok in de app dat
@@ -473,7 +477,11 @@ def toon_vakken(selectie=0, scroll=0):
         # bestaande "gem"-label van het cijferscherm dekt dezelfde lading in
         # 12 tekens.
         contextbalk("gem. per vak", GESYNCT, GESYNCT_UREN >= 24)
-        mededeling("nog geen cijfers in " + PERIODE, "dit is geen fout")
+        # Zonder periode: kop() zet die hierboven al rechtsboven neer, en
+        # "nog geen cijfers in P1 · P2" is 27 tekens in een blok van 25 --
+        # dan kapt truncate() de tweede periode eraf en blijft er een losse
+        # punt achter. Beide regels zijn nu 16 tekens en kappen nooit.
+        mededeling("nog geen cijfers", "dit is geen fout")
         voetbalk("1 rooster  CLEAR terug")
         return
 

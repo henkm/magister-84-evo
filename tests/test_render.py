@@ -482,8 +482,8 @@ def test_het_cijferblok_kapt_een_te_lange_tekstwaardering_af(tekeningen):
     assert blok[1] + M.text_width(blok[3]) <= M.CIJFER_X + M.CIJFER_W, blok
 
 def test_de_lege_vakkenlijst_houdt_zijn_mededeling_binnen_de_kaart(tekeningen):
-    # "nog geen cijfers in " + PERIODE groeit mee met het aantal perioden en
-    # was aan geen enkel budget gebonden.
+    # Geen van beide regels was aan een budget gebonden; de kaart is 271 px
+    # breed en de tekst begint op x=40.
     origineel_v, origineel_p = M.VAKKEN, M.PERIODE
     M.VAKKEN, M.PERIODE = [], "P1 · P2 · P3 · P4"
     try:
@@ -495,6 +495,29 @@ def test_de_lege_vakkenlijst_houdt_zijn_mededeling_binnen_de_kaart(tekeningen):
     for c in teksten(tekeningen):
         if c[2] - M.TEKST_ANKER >= 96 and c[1] >= kaart[1]:
             assert c[1] + M.text_width(c[3]) <= rechterrand, c
+
+def test_de_lege_vakkenlijst_kapt_geen_van_beide_regels_af(tekeningen):
+    # De mededeling noemde de periode: "nog geen cijfers in " + PERIODE. Bij
+    # twee perioden is dat 27 tekens in een blok van 25, dus kapte truncate()
+    # de tweede periode eraf en bleef er "nog geen cijfers in P1 ·." staan.
+    # De periode staat al rechtsboven in de kop; hij hoort niet in deze zin.
+    origineel_v, origineel_p = M.VAKKEN, M.PERIODE
+    try:
+        for periode in ("", "P1", "P1 · P2", "P1 · P2 · P3 · P4", "dit jaar"):
+            tekeningen.clear()
+            M.VAKKEN, M.PERIODE = [], periode
+            M.toon_vakken(0, 0)
+            regels = [c[3] for c in teksten(tekeningen)
+                      if c[2] - M.TEKST_ANKER in (M.MED_TEKST_Y,
+                                                  M.MED_TEKST_Y + M.LINE)]
+            assert regels == ["nog geen cijfers", "dit is geen fout"], periode
+            for r in regels:
+                # truncate() plakt er een punt achter zodra het niet past;
+                # geen punt betekent dus: er is niets afgekapt.
+                assert not r.endswith("."), (periode, r)
+                assert M.text_width(r) <= M.MED_TEKST_W, (periode, r)
+    finally:
+        M.VAKKEN, M.PERIODE = origineel_v, origineel_p
 
 # --- randgevallen: niets buiten het scherm, niets over de buur ---
 #
