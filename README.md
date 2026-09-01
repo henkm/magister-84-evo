@@ -142,3 +142,38 @@ Open daarna `http://localhost:8765/panel.html?scherm=klaar`. De schermen zijn
 laatste kiest `&soort=` de fout, bijvoorbeeld
 `?scherm=fout&soort=geen-rekenmachine`. De soorten staan in `FOUTEN` in
 `extension/src/stroom.js`.
+
+## Wat nog nooit op echte hardware heeft gedraaid
+
+De hele keten is met tests afgedekt en het protocol is byte voor byte gelijk
+aan de Python-verzender die wél tegen het apparaat bewezen is. Twee dingen
+kunnen alleen door een mens gecontroleerd worden, en zijn dus nog open:
+
+**1. De app op het scherm.** Het pixelraster is opnieuw afgeleid nadat op het
+apparaat gemeten was dat `draw_text` het letterblok op `[y-18, y-3]` zet en dat
+het blok 16 px hoog is. Sindsdien is er niets meer naar de Evo gestuurd. Sluit
+hem aan en stuur beide programma's:
+
+```bash
+python3 -m tools.evosend MAGISTER calc/MAGISTER.py
+python3 -m tools.evosend MAGDATA calc/MAGDATA.py
+```
+
+Kijk dan naar vier dingen: valt de koptekst binnen de blauwe balk, staan de
+twee regels van een lesregel los van elkaar, valt de tekst van elke chip binnen
+de chip, en loopt de begintijd niet meer onder de lesuur-badge door. Een
+dubbeluur vanaf uur 9 (`9-10`, `10-11`) is de zwaarste test voor de badge.
+
+**2. Twee programma's over één open poort.** `stuurAlles` stuurt `MAGISTER` en
+`MAGDATA` achter elkaar zonder de poort tussendoor te sluiten;
+`tools/evosend` heeft altijd één bestand per verbinding gestuurd. Dat het
+apparaat een tweede `S` accepteert na een `B` op dezelfde verbinding is de
+enige aanname waar de "eerst de app, dan de data"-opzet op rust, en die is nog
+niet uitgeprobeerd. Merk je dat de tweede overdracht hangt, dan is dat het:
+de poort tussen de twee programma's sluiten en opnieuw openen lost het op.
+
+Verder is er één bewuste afwijking van het ontwerp: de keuzekaarten tonen
+alleen de naam van het kind, niet de regel `4 havo · Stedelijk Lyceum`
+eronder. Die gegevens zitten niet in het `/kinderen`-antwoord en zouden per
+kind een extra call kosten op precies het eerste scherm — een call die 403 kan
+geven.
