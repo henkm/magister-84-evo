@@ -13,7 +13,7 @@ import sys
 import types
 
 TEKENFUNCTIES = ("set_color", "fill_rect", "draw_rect", "draw_line",
-                 "draw_text", "show_draw", "clear")
+                 "draw_text", "clear")
 
 K_CLEAR = 45          # gemeten toetscode; sluit de app vanaf vandaag
 
@@ -54,5 +54,5 @@ def test_de_app_start_zichzelf_zoals_de_evo_hem_start():
 
     assert [c for c in calls if c[0] == "draw_text"], \
         "de app tekende niets bij import: op het apparaat start hij dus niet"
-    assert [c for c in calls if c[0] == "show_draw"], \
-        "er is getekend maar nooit geflusht; het scherm blijft dan leeg"
+    assert [c for c in calls if c[0] == "fill_rect"], \
+        "er is tekst getekend maar geen achtergrond: dat is geen scherm"

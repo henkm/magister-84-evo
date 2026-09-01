@@ -34,10 +34,18 @@ def _rechthoek(naam):
     return f
 
 
+def _show_draw():
+    raise AssertionError(
+        "show_draw() pauzeert op de Evo tot CLEAR (gemeten 2026-09-01): in een "
+        "tekenlus bevriest hij de app -- beeld perfect, elke toets dood. De "
+        "app tekent rechtstreeks en wacht met wait_key.")
+
+
 def install():
     d = types.ModuleType("ti_draw")
-    for naam in ("set_color", "draw_line", "draw_text", "show_draw", "clear"):
+    for naam in ("set_color", "draw_line", "draw_text", "clear"):
         setattr(d, naam, _record(naam))
+    d.show_draw = _show_draw
     for naam in ("fill_rect", "draw_rect"):
         setattr(d, naam, _rechthoek(naam))
     d.get_screen_dim = lambda: [319, 209]

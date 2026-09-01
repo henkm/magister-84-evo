@@ -661,7 +661,6 @@ def main():
         # enige toets die sluit; elke andere tekent het scherm opnieuw.
         while True:
             toon_geen_data()
-            D.show_draw()
             if wait_key() == K_CLEAR:
                 return
 
@@ -679,8 +678,13 @@ def main():
             toon_vakken(vak, vak_scroll)
         else:
             toon_cijfers(vak, vak_scroll)
-        D.show_draw()
 
+        # Geen show_draw(): die pauzeert op de Evo tot CLEAR (gemeten
+        # 2026-09-01, en het kostte een sessie). In een lus bevriest hij de
+        # app -- het beeld stond er perfect op en geen enkele toets deed iets,
+        # want elke druk kwam bij show_draw terecht en niet bij wait_key.
+        # Tekenwerk is meteen zichtbaar; show_draw hoort aan het einde van een
+        # programma dat zijn plaatje wil laten staan, en dat wil dit niet.
         k = wait_key()
         rijen = DAGEN[dag][3]
 

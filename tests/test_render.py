@@ -916,20 +916,28 @@ def _toetsen(*codes):
     return volgende
 
 def _beeldjes(calls):
-    """Splitst de opnames in beeldjes: alles tot aan elke show_draw.
+    """Splitst de opnames in beeldjes: elk beeld begint met de achtergrond.
 
-    Geeft (beeldjes, rest) terug; `rest` is het tekenwerk na de laatste
-    show_draw en hoort leeg te zijn, want main() flusht elk beeld voordat
-    hij op een toets wacht.
+    Er valt niets meer te splitsen op een flush: show_draw() pauzeert op de
+    Evo tot CLEAR en mag dus niet in een tekenlus staan. Elke schermfunctie
+    begint met een vlak over het hele scherm, en dat is de beeldgrens.
+
+    Geeft (beeldjes, voor) terug; `voor` is het tekenwerk vóór het eerste
+    beeld en hoort leeg te zijn -- main() tekent nooit buiten een beeld om.
     """
-    beeldjes, huidig = [], []
+    beeldjes, huidig, voor = [], None, []
     for c in calls:
-        if c[0] == "show_draw":
+        if c[0] == "fill_rect" and c[1:] == (0, 0, M.SCREEN_W, M.SCREEN_H):
+            vorige = voor if huidig is None else huidig
+            # de set_color die de achtergrond zet hoort bij het nieuwe beeld
+            huidig = [vorige.pop()] if vorige and vorige[-1][0] == "set_color" \
+                else []
             beeldjes.append(huidig)
-            huidig = []
+        if huidig is None:
+            voor.append(c)
         else:
             huidig.append(c)
-    return beeldjes, huidig
+    return beeldjes, voor
 
 def _titels(beeldjes):
     """De koptitel (draw_text op 6,21 - top=3) van elk beeldje, in volgorde."""
@@ -954,9 +962,9 @@ def test_main_no_data_screen_closes_only_on_clear(tekeningen):
         M.main()
     finally:
         M.DAGEN, M.wait_key = origineel_dagen, origineel_key
-    beeldjes, rest = _beeldjes(tekeningen)
+    beeldjes, voor = _beeldjes(tekeningen)
     assert len(beeldjes) == 3, "elke toets hoort het scherm opnieuw te tekenen"
-    assert rest == [], "elk beeld hoort geflusht voordat er op een toets wordt gewacht"
+    assert voor == [], "er is getekend voordat het eerste beeld begon"
     t = [c[3] for c in teksten(tekeningen)]
     assert "geen gegevens gevonden" in t
 
@@ -1270,10 +1278,9 @@ def test_main_clear_from_cijfers_resets_the_subject_selection(tekeningen):
     assert ("draw_rect", 0, M.LIJST_Y, 317, 20) in terug_op_vakken, \
         "geen zichtbaar selectiekader op het eerste vak na CLEAR vanuit cijfers"
 
-def test_main_flushes_every_frame_exactly_once(tekeningen):
-    # main() bezit de presentatie: elke tekenfunctie tekent alleen, main()
-    # flusht. Elk beeldje hoort dus precies één show_draw te hebben en geen
-    # enkel beeldje mag leeg zijn.
+def test_main_tekent_bij_elke_toets_een_heel_nieuw_beeld(tekeningen):
+    # Elke toetsdruk hoort een compleet beeld op te leveren: achtergrond,
+    # tekst, alles. Geen half beeld en geen beeld dat blijft staan.
     origineel = M.wait_key
     M.wait_key = _toetsen(M.K_2, M.K_ENTER, M.K_1, M.K_OMLAAG, M.K_ENTER,
                           M.K_RECHTS, M.K_CLEAR, M.K_RECHTS, M.K_CLEAR,
@@ -1283,22 +1290,26 @@ def test_main_flushes_every_frame_exactly_once(tekeningen):
     finally:
         M.wait_key = origineel
 
-    beeldjes, rest = _beeldjes(tekeningen)
-    flushes = [c for c in tekeningen if c[0] == "show_draw"]
-    assert len(beeldjes) == 10 == len(flushes), "één flush per toetsdruk"
-    assert rest == [], "er is getekend na de laatste flush"
+    beeldjes, voor = _beeldjes(tekeningen)
+    assert len(beeldjes) == 10, "één beeld per toetsdruk"
+    assert voor == [], "er is getekend voordat het eerste beeld begon"
     for n, b in enumerate(beeldjes):
         assert b, "beeldje %d tekent niets" % n
         assert any(c[0] == "draw_text" for c in b)
 
-def test_missing_data_screen_does_not_flush_itself(tekeningen):
-    # toon_geen_data() is een tekenfunctie als alle andere: geen show_draw.
+def test_geen_enkel_scherm_roept_show_draw_aan(tekeningen):
+    """show_draw() pauzeert op de Evo tot CLEAR, dus de app raakt hem niet aan.
+
+    De neppe ti_draw laat hem ook knallen; deze test staat er om de reden vast
+    te leggen bij de schermen zelf.
+    """
     M.toon_geen_data()
+    M.toon_dag(0, 0, 0)
     assert not [c for c in tekeningen if c[0] == "show_draw"]
 
-def test_main_flushes_the_missing_data_screen_once(tekeningen):
+def test_main_tekent_het_geen_data_scherm_een_keer(tekeningen):
     # CLEAR sluit meteen, dus dit is precies een ronde door de lus: een beeld,
-    # geflusht, en niets wat er na de laatste show_draw nog bij komt.
+    # en niets daarbuiten.
     origineel_dagen, origineel_key = M.DAGEN, M.wait_key
     M.DAGEN = []
     M.wait_key = _toetsen(M.K_CLEAR)
@@ -1306,5 +1317,5 @@ def test_main_flushes_the_missing_data_screen_once(tekeningen):
         M.main()
     finally:
         M.DAGEN, M.wait_key = origineel_dagen, origineel_key
-    beeldjes, rest = _beeldjes(tekeningen)
-    assert len(beeldjes) == 1 and beeldjes[0] and rest == []
+    beeldjes, voor = _beeldjes(tekeningen)
+    assert len(beeldjes) == 1 and beeldjes[0] and voor == []
