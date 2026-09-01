@@ -659,25 +659,37 @@ def main():
         # toets waarmee je hem start staat nog in de buffer en telt als
         # antwoord. De voetbalk belooft "CLEAR sluiten", dus dat is ook de
         # enige toets die sluit; elke andere tekent het scherm opnieuw.
-        while True:
-            toon_geen_data()
-            if wait_key() == K_CLEAR:
-                return
+        toon_geen_data()
+        while wait_key() != K_CLEAR:
+            # Een andere toets verandert niets, dus valt er ook niets opnieuw
+            # te tekenen. Een toets die nog van het starten in de buffer stond
+            # sluit het scherm hiermee niet.
+            pass
+        return
 
     scherm = "dag"
     dag, selectie, scroll = 0, eerste_les(DAGEN[0][3]), 0
     detail_scroll = 0
     vak, vak_scroll = 0, 0
 
+    # Wat het beeld bepaalt. Verandert er niets aan, dan hoeft er niets
+    # opnieuw getekend te worden: omlaag op de onderste regel, of links op de
+    # eerste dag, hoort niets te doen. Wel opnieuw tekenen suggereert dat er
+    # iets gebeurd is -- je ziet het beeld knipperen terwijl het gelijk blijft.
+    getekend = None
+
     while True:
-        if scherm == "dag":
-            toon_dag(dag, selectie, scroll)
-        elif scherm == "detail":
-            toon_lesdetail(dag, selectie, detail_scroll)
-        elif scherm == "vakken":
-            toon_vakken(vak, vak_scroll)
-        else:
-            toon_cijfers(vak, vak_scroll)
+        nu = (scherm, dag, selectie, scroll, detail_scroll, vak, vak_scroll)
+        if nu != getekend:
+            if scherm == "dag":
+                toon_dag(dag, selectie, scroll)
+            elif scherm == "detail":
+                toon_lesdetail(dag, selectie, detail_scroll)
+            elif scherm == "vakken":
+                toon_vakken(vak, vak_scroll)
+            else:
+                toon_cijfers(vak, vak_scroll)
+            getekend = nu
 
         # Geen show_draw(): die pauzeert op de Evo tot CLEAR (gemeten
         # 2026-09-01, en het kostte een sessie). In een lus bevriest hij de

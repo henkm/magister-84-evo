@@ -953,7 +953,8 @@ def test_main_no_data_screen_closes_only_on_clear(tekeningen):
     De toets waarmee je de app start staat nog in de toetsenbuffer, dus de
     eerste wait_key() komt onmiddellijk terug. Sloot dit scherm op elke toets,
     dan was het scherm nooit te lezen -- terwijl de voetbalk "CLEAR sluiten"
-    belooft. Alleen CLEAR sluit; alles daarvoor tekent het scherm opnieuw.
+    belooft. Alleen CLEAR sluit; een andere toets laat het scherm staan zoals
+    het staat -- en tekent het ook niet opnieuw, want er verandert niets.
     """
     origineel_dagen, origineel_key = M.DAGEN, M.wait_key
     M.DAGEN = []
@@ -963,7 +964,7 @@ def test_main_no_data_screen_closes_only_on_clear(tekeningen):
     finally:
         M.DAGEN, M.wait_key = origineel_dagen, origineel_key
     beeldjes, voor = _beeldjes(tekeningen)
-    assert len(beeldjes) == 3, "elke toets hoort het scherm opnieuw te tekenen"
+    assert len(beeldjes) == 1, "er verandert niets, dus valt er niets te hertekenen"
     assert voor == [], "er is getekend voordat het eerste beeld begon"
     t = [c[3] for c in teksten(tekeningen)]
     assert "geen gegevens gevonden" in t
@@ -1018,10 +1019,36 @@ def test_main_selection_never_lands_on_a_gap_row(tekeningen):
     finally:
         M.wait_key = origineel
     beeldjes, _ = _beeldjes(tekeningen)
-    assert len(beeldjes) == 6
+    # Vijf en niet zes: de laatste pijl omlaag stond al op de onderste regel
+    # en verandert dus niets, en dan hoort er ook niets hertekend te worden.
+    assert len(beeldjes) == 5
     for n, b in enumerate(beeldjes):
         assert any(c[0] == "draw_rect" for c in b), \
             "beeldje %d heeft geen selectiekader" % n
+
+def test_main_tekent_niet_opnieuw_als_er_niets_verandert(tekeningen):
+    """Een hertekening is de belofte dat er iets gebeurd is.
+
+    Omhoog op de bovenste regel of links op vandaag verandert niets. Tekende
+    de app dan toch opnieuw, dan zag je het beeld knipperen terwijl het
+    hetzelfde bleef -- en dat leest als "er is iets gebeurd, maar wat?".
+    """
+    origineel = M.wait_key
+    M.wait_key = _toetsen(M.K_OMHOOG,     # staat al op de bovenste lesregel
+                          M.K_LINKS,      # staat al op vandaag
+                          M.K_RECHTS,     # morgen: dit verandert wel iets
+                          M.K_RECHTS,     # de dag daarna
+                          M.K_RECHTS,     # laatste dag, dus klemt
+                          M.K_CLEAR,      # terug naar vandaag
+                          M.K_CLEAR)      # en sluiten
+    try:
+        M.main()
+    finally:
+        M.wait_key = origineel
+    beeldjes, _ = _beeldjes(tekeningen)
+    assert len(beeldjes) == 4, \
+        "alleen het eerste beeld en de drie echte veranderingen"
+    assert _titels(beeldjes) == ["VANDAAG", "ROOSTER", "ROOSTER", "VANDAAG"]
 
 def test_main_enter_on_a_gap_row_does_nothing(tekeningen):
     # De pijlen kunnen niet meer op een tussenuur landen, dus deze bewaking
@@ -1170,13 +1197,13 @@ def test_main_detail_arrows_walk_between_lessons(tekeningen):
     for b in beeldjes:
         n = [c[3] for c in b if c[0] == "draw_text" and c[1] == 68 and c[2] == 44]
         vakken_per_beeld.append(n[0] if n else None)
-    # beeld 0 en het laatste zijn het dagscherm; daartussen de lesdetails
+    # beeld 0 en het laatste zijn het dagscherm; daartussen de lesdetails.
+    # De twee klemmende pijlen leveren geen beeld op: er verandert niets.
     assert vakken_per_beeld == [
         None,                                       # dagscherm
         "wiskunde B", "natuurkunde",                # rechts, en links terug
-        "wiskunde B", "wiskunde B",                 # links klemt op de eerste
+        "wiskunde B",                               # links klemt op de eerste
         "natuurkunde", "nederlands", "engels", "geschiedenis",
-        "geschiedenis",                             # rechts klemt op de laatste
         None,                                       # weer het dagscherm
     ]
     # het tussenuur (rij 1) heeft een leeg lesuur en een lege vaknaam: daar
