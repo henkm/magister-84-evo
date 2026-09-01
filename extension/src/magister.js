@@ -5,7 +5,8 @@ export class MagisterFout extends Error {
   constructor(soort, bericht, details) {
     super(bericht);
     this.name = 'MagisterFout';
-    this.soort = soort;      // sessie-verlopen | geen-toegang | magister-fout | netwerkfout
+    // sessie-verlopen | geen-toegang | geen-aanmelding | magister-fout | netwerkfout
+    this.soort = soort;
     this.details = details;  // nooit het token
   }
 }
@@ -52,7 +53,15 @@ export function maakClient({ tenant, token, haal = globalThis.fetch }) {
         `Magister antwoordde met ${antwoord.status}.`,
         { pad, status: antwoord.status });
     }
-    return antwoord.json();
+    try {
+      return await antwoord.json();
+    } catch (e) {
+      // Een stuk body dat geen JSON is (een inlogpagina, een halve response)
+      // hoort een MagisterFout te worden, geen rauwe SyntaxError.
+      throw new MagisterFout('magister-fout',
+        'Magister gaf een antwoord dat niet te lezen was.',
+        { pad, status: antwoord.status });
+    }
   }
 
   return {
@@ -85,7 +94,7 @@ export function maakClient({ tenant, token, haal = globalThis.fetch }) {
       }));
       alle.sort((a, b) => String(b.van).localeCompare(String(a.van)));
       if (!alle.length) {
-        throw new MagisterFout('magister-fout',
+        throw new MagisterFout('geen-aanmelding',
           'Dit account heeft geen aanmelding voor een schooljaar.', {});
       }
       return alle[0];

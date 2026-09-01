@@ -16,6 +16,10 @@ function nepHaal(routes) {
         if (typeof antwoord === 'number') {
           return { ok: false, status: antwoord, json: async () => ({}) };
         }
+        if (antwoord === KAPOT) {
+          return { ok: true, status: 200,
+            json: async () => { throw new SyntaxError('Unexpected token <'); } };
+        }
         return { ok: true, status: 200, json: async () => antwoord };
       }
     }
@@ -24,6 +28,9 @@ function nepHaal(routes) {
   haal.opgevraagd = opgevraagd;
   return haal;
 }
+
+/** Markeert een route waarvan de body geen JSON is (een inlogpagina bijvoorbeeld). */
+const KAPOT = Symbol('kapotte body');
 
 test('beide schrijfwijzen van de API worden gelezen', () => {
   assert.deepEqual(rijen({ Items: [1, 2] }), [1, 2]);
@@ -93,15 +100,55 @@ test('een netwerkstoring wordt een nette fout', async () => {
   await assert.rejects(() => c.account(), (e) => e.soort === 'netwerkfout');
 });
 
-test('geen enkele foutmelding bevat het token', async () => {
-  for (const status of [401, 403, 500]) {
-    const c = maakClient({ tenant: 'school.magister.net', token: 'ZEERGEHEIM',
-      haal: nepHaal([['/api/account', status]]) });
-    await c.account().catch((e) => {
-      assert.ok(!String(e.message).includes('ZEERGEHEIM'));
-      assert.ok(!JSON.stringify(e.details || {}).includes('ZEERGEHEIM'));
+test('geen enkele foutmelding bevat het token, in elke fouttak', async () => {
+  // De regel voor dit bestand: het token verlaat de Authorization-header niet.
+  // Elke tak die een MagisterFout gooit hoort hier langs te komen, ook de tak
+  // waar haal zelf struikelt; die werd eerder helemaal niet aangeraakt.
+  const GEHEIM = 'ZEERGEHEIM';
+  const kapot = async () => { throw new TypeError(`Failed to fetch ${GEHEIM}`); };
+  const takken = [
+    ['netwerkfout', kapot, (c) => c.account()],
+    ['sessie-verlopen', nepHaal([['/api/account', 401]]), (c) => c.account()],
+    ['geen-toegang', nepHaal([['/api/account', 403]]), (c) => c.account()],
+    ['magister-fout', nepHaal([['/api/account', 500]]), (c) => c.account()],
+    ['magister-fout', nepHaal([['/api/account', KAPOT]]), (c) => c.account()],
+    ['geen-aanmelding', nepHaal([['/aanmeldingen', { Items: [] }]]),
+      (c) => c.aanmelding(6002)],
+  ];
+  for (const [soort, haal, roep] of takken) {
+    const c = maakClient({ tenant: 'school.magister.net', token: GEHEIM, haal });
+    await assert.rejects(() => roep(c), (e) => {
+      assert.ok(e instanceof MagisterFout, `${soort} gaf geen MagisterFout`);
+      assert.equal(e.soort, soort);
+      assert.ok(!String(e.message).includes(GEHEIM), `${soort}: token in het bericht`);
+      assert.ok(!JSON.stringify(e.details || {}).includes(GEHEIM),
+        `${soort}: token in de details`);
+      assert.ok(!JSON.stringify(e).includes(GEHEIM), `${soort}: token in de fout`);
+      return true;
     });
   }
+});
+
+test('een body die geen JSON is wordt een MagisterFout', async () => {
+  const c = maakClient({ tenant: 'school.magister.net', token: 'x',
+    haal: nepHaal([['/api/account', KAPOT]]) });
+  await assert.rejects(() => c.account(), (e) => {
+    assert.ok(e instanceof MagisterFout, 'een rauwe SyntaxError kwam naar boven');
+    assert.equal(e.soort, 'magister-fout');
+    assert.equal(e.details.status, 200);
+    return true;
+  });
+});
+
+test('geen aanmelding is een eigen soort, geen algemene Magister-fout', async () => {
+  const c = maakClient({ tenant: 'school.magister.net', token: 'x',
+    haal: nepHaal([['/aanmeldingen', { Items: [] }]]) });
+  await assert.rejects(() => c.aanmelding(6002), (e) => {
+    assert.ok(e instanceof MagisterFout);
+    assert.equal(e.soort, 'geen-aanmelding');
+    assert.match(e.message, /aanmelding/);
+    return true;
+  });
 });
 
 test('afspraken vragen een datumbereik op', async () => {
