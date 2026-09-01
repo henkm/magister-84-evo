@@ -190,9 +190,13 @@ def scrollbar(eerste, zichtbaar, totaal):
 
 # --- tekenlaag: de lesregel ---
 
-BADGE_X = 54
+TIJD_X = 6
+BADGE_X = 60
 BADGE_W = 36
-TEKST_X = 96
+BADGE_H = 20
+TEKST_X = 100
+CHIP_H = 20
+RIJ_H = 36
 
 CHIP_KLEUR = {
     "HW": BLAUW,
@@ -218,15 +222,15 @@ def lesregel(y, rij, geselecteerd=False):
     band, accent, badge, voorgrond = _lesregel_kleuren(rij[L_STATUS])
     if geselecteerd:
         band = SELECTIE
-    vlak(0, y, 319, 26, band)
-    vlak(0, y, 4, 26, accent)
+    vlak(0, y, 319, RIJ_H, band)
+    vlak(0, y, 4, RIJ_H, accent)
 
-    tekst(8, y + 5, rij[L_BEGIN], GEDEMPT)
-    tekst(8, y + 16, rij[L_EIND], GEDEMPT)
+    tekst(TIJD_X, y + 2, rij[L_BEGIN], GEDEMPT)
+    tekst(TIJD_X, y + 18, rij[L_EIND], GEDEMPT)
 
-    vlak(BADGE_X, y + 4, BADGE_W, 18, badge)
+    vlak(BADGE_X, y + 2, BADGE_W, BADGE_H, badge)
     uur = rij[L_UUR]
-    tekst(BADGE_X + (BADGE_W - text_width(uur)) // 2, y + 8, uur, WIT)
+    tekst(BADGE_X + (BADGE_W - text_width(uur)) // 2, y + 4, uur, WIT)
 
     chip = rij[L_CHIP]
     if chip:
@@ -245,30 +249,39 @@ def lesregel(y, rij, geselecteerd=False):
         vak_ruimte = beschikbaar
 
     vak = truncate(rij[L_VAK], vak_ruimte)
-    tekst(TEKST_X, y + 5, vak, voorgrond)
+    tekst(TEKST_X, y + 2, vak, voorgrond)
     breedte = text_width(vak)
     if lokaal:
-        tekst(TEKST_X + breedte + ADVANCE, y + 5, lokaal, GEDEMPT)
+        tekst(TEKST_X + breedte + ADVANCE, y + 2, lokaal, GEDEMPT)
         breedte += ADVANCE + text_width(lokaal)
-    docent = truncate(rij[L_DOCENT], RIGHT - TEKST_X)
-    tekst(TEKST_X, y + 16, docent, GEDEMPT)
+    # De docent deelt zijn regel met de chip als die er is, net als het vak
+    # hierboven: bij deze lettermaat is de chip (20 px hoog, vanaf y+8) hoog
+    # genoeg om in de band van de docentregel (vanaf y+18) te reiken, dus die
+    # twee mogen elkaar niet raken. toon_lesdetail() doet dit al zo.
+    docent = truncate(rij[L_DOCENT], beschikbaar)
+    tekst(TEKST_X, y + 18, docent, GEDEMPT)
 
     if rij[L_STATUS] == "vervallen":
         vlak(TEKST_X, y + 10, breedte, 1, GEDEMPT)
 
     if chip:
         b = chip_breedte(chip)
-        vlak(RIGHT - b, y + 6, b, 14, CHIP_KLEUR[chip])
-        tekst(RIGHT - b + 4, y + 8, chip, WIT)
+        vlak(RIGHT - b, y + 8, b, CHIP_H, CHIP_KLEUR[chip])
+        tekst(RIGHT - b + 4, y + 10, chip, WIT)
 
     if geselecteerd:
-        rand(0, y, 317, 24, BLAUW)
+        rand(0, y, 317, 34, BLAUW)
 
 
 def gatregel(y, rij):
-    vlak(8, y + 4, 64, 1, GEDEMPT)
-    vlak(256, y + 4, 55, 1, GEDEMPT)
-    tekst(80, y, "tussenuur %s-%s" % (rij[L_BEGIN], rij[L_EIND]), GEDEMPT)
+    label = "tussenuur %s-%s" % (rij[L_BEGIN], rij[L_EIND])
+    tekst(80, y + 10, label, GEDEMPT)
+    vlak(8, y + 18, 64, 1, GEDEMPT)
+    # De rechterlijn begon op een vaste x=256 en liep daarmee dwars door het
+    # label heen; nu begint hij pas waar het label eindigt.
+    start = 80 + text_width(label) + 8
+    if start < 311:
+        vlak(start, y + 18, 311 - start, 1, GEDEMPT)
 
 
 # --- tekenlaag: het roosterscherm ---
