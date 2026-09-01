@@ -41,6 +41,18 @@ def right_x(s):
     return RIGHT - text_width(s)
 
 
+def budget_naast(links_tekst):
+    """Ruimte voor een rechts uitgelijnde tekst naast `links_tekst` op x=6,
+    met 8 px lucht ertussen.
+
+    De spiegeling van hoe toon_cijfers() het titelbudget al aan `rechts`
+    ontleent (`right_x(rechts) - 8 - 6`): hier is het de rechtertekst die
+    zijn ruimte aan de vaste linkertekst ontleent, net zoals de vaknaam zijn
+    budget van het gemiddelde krijgt en de docent van de chip.
+    """
+    return right_x(links_tekst) - 8 - 6
+
+
 def truncate(s, px):
     # If budget cannot hold even one character, return empty string
     if px < ADVANCE:
@@ -362,7 +374,19 @@ def toon_dag(i, selectie=0, scroll=0):
     vlak(0, 0, 319, 209, PAGINA)
     if vandaag:
         kop("VANDAAG", kop_datum)
-        contextbalk("%d lessen" % len(lessen), GESYNCT, GESYNCT_UREN >= 24)
+        # De leerlingnaam erbij: het is het eerste scherm na een sync, dus de
+        # plek waar data van het verkeerde kind meteen zou opvallen. Het
+        # budget wordt van GESYNCT rechts afgeleid (die staat op 181 als de
+        # data verouderd is, anders rechts uitgelijnd); past de naam niet,
+        # dan valt de balk terug op kale "N lessen" in plaats van een
+        # afgekapte naam met een punt erachter.
+        verouderd = GESYNCT_UREN >= 24
+        rechts_x = 181 if verouderd else right_x(GESYNCT)
+        telling = "%d lessen" % len(lessen)
+        naam_en_telling = "%s - %s" % (LEERLING, telling)
+        links = (naam_en_telling if fits(naam_en_telling, rechts_x - 8 - 6)
+                else telling)
+        contextbalk(links, GESYNCT, verouderd)
     else:
         kop("ROOSTER", "< " + kop_datum + " >")
         contextbalk(bijschrift, GESYNCT, GESYNCT_UREN >= 24)
@@ -471,7 +495,10 @@ def toon_lesdetail(dag_i, rij_i, scroll=0):
 def toon_vakken(selectie=0, scroll=0):
     vlak(0, 0, 319, 209, PAGINA)
     if not VAKKEN:
-        kop("VAKKEN", PERIODE)
+        # PERIODE krijgt zijn budget van "VAKKEN" zelf: zonder dat liep een
+        # lange periodenaam (geen P-vorm) van het scherm en over de titel
+        # heen; vijf perioden ("P1 · P2 · P3 · P4 · P5") botsten ermee.
+        kop("VAKKEN", truncate(PERIODE, budget_naast("VAKKEN")))
         # "gemiddelde per vak" (19 tekens, tot x=196) botste met de rechts
         # uitgelijnde syncstatus ("gesynct 07:41" begint op x=183). Het
         # bestaande "gem"-label van het cijferscherm dekt dezelfde lading in
@@ -518,7 +545,7 @@ def toon_vakken(selectie=0, scroll=0):
         if scroll + n == selectie:
             rand(0, y, 317, 20, BLAUW)
 
-    kop("VAKKEN", PERIODE)
+    kop("VAKKEN", truncate(PERIODE, budget_naast("VAKKEN")))
     contextbalk("gem. per vak", GESYNCT, GESYNCT_UREN >= 24)
 
     scrollbar(scroll, 6, len(VAKKEN))
@@ -534,7 +561,12 @@ def toon_cijfers(vak_i, scroll=0):
     rechts = "gem " + (gem if gem else "-")
     titel_breedte = right_x(rechts) - 8 - 6
     kop(truncate(naam, titel_breedte).upper(), rechts)
-    contextbalk("%d cijfers" % len(cijfers), PERIODE)
+    # PERIODE stond hier zonder budget rechts uitgelijnd: bij vijf perioden
+    # ("P1 · P2 · P3 · P4 · P5", 22 tekens) botste dat met "N cijfers"
+    # links. Het budget wordt, net als bij de vaknaam en de docent
+    # elders, van die buurtekst afgeleid.
+    links = "%d cijfers" % len(cijfers)
+    contextbalk(links, truncate(PERIODE, budget_naast(links)))
 
     scroll = max(0, min(scroll, max(0, len(cijfers) - ZICHTBAAR)))
     zichtbaar = cijfers[scroll:scroll + ZICHTBAAR]
@@ -644,9 +676,18 @@ def main():
                 dag, scroll = 0, 0
                 selectie = eerste_les(DAGEN[0][3])
             elif scherm == "cijfers":
-                scherm, vak_scroll = "vakken", 0
+                # Dezelfde soort reset als hierboven bij "vakken": vak_scroll
+                # terugzetten zonder vak zelf zou vak 11 geselecteerd laten
+                # terwijl de lijst weer bij vak 1 begint.
+                scherm, vak, vak_scroll = "vakken", 0, 0
             elif scherm == "vakken":
-                scherm, scroll, vak_scroll = "dag", 0, 0
+                # Ruling (progress.md): CLEAR vanuit vakken gaat net als
+                # CLEAR vanuit dag terug naar vandaag, dus ook dag=0 en de
+                # selectie op de eerste lesrij -- niet alleen scroll en
+                # vak_scroll op 0, want dan bleef je op de dag en de
+                # (mogelijk onzichtbare) selectie staan waar je vandaan kwam.
+                scherm, dag, scroll, vak_scroll = "dag", 0, 0, 0
+                selectie = eerste_les(DAGEN[0][3])
             else:                       # scherm == "detail"
                 # scroll is van het dagscherm en blijft hier onaangeroerd:
                 # de lijstpositie moet exact zijn zoals de gebruiker hem

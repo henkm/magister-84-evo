@@ -279,6 +279,31 @@ def test_other_days_get_the_rooster_header(tekeningen):
     M.toon_dag(1, 0, 0)
     assert ("draw_text", 6, 21, "ROOSTER") in teksten(tekeningen)
 
+def test_vandaag_toont_de_leerlingnaam_naast_het_aantal_lessen(tekeningen):
+    # LEERLING wordt geimporteerd maar nergens getoond -- een stille fout
+    # (data van het verkeerde kind) valt dan niet op. De contextbalk van
+    # vandaag is de eerste regel na een sync en krijgt daarom de naam erbij.
+    M.toon_dag(0, 0, 0)
+    lessen = len([r for r in M.DAGEN[0][3] if r[M.L_SOORT] == "les"])
+    verwacht = "%s - %d lessen" % (M.LEERLING, lessen)
+    assert ("draw_text", 6, 41, verwacht) in teksten(tekeningen)
+
+def test_leerlingnaam_valt_terug_op_alleen_de_telling_als_hij_niet_past(tekeningen):
+    # Het budget wordt afgeleid van GESYNCT rechts, niet aangenomen: een
+    # lange naam mag niet half over "gesynct ..." heen lopen. In plaats van
+    # een afgekapte naam met een punt erachter valt de balk dan terug op
+    # kaal "N lessen", zoals de contextbalk dat zonder leerling ook al deed.
+    origineel = M.LEERLING
+    M.LEERLING = "Constantijn-Alexander"
+    try:
+        M.toon_dag(0, 0, 0)
+    finally:
+        M.LEERLING = origineel
+    lessen = len([r for r in M.DAGEN[0][3] if r[M.L_SOORT] == "les"])
+    assert ("draw_text", 6, 41, "%d lessen" % lessen) in teksten(tekeningen)
+    layoutregels.binnen_scherm(tekeningen, M)
+    layoutregels.geen_tekstoverlap(tekeningen, M)
+
 def test_day_screen_places_rows_on_the_design_pitch(tekeningen):
     # Rij 1 van de fixture is een tussenuur en tekent geen band, dus de
     # banden staan op 42, 118 en 156 - niet op 42, 80, 118.
@@ -518,6 +543,49 @@ def test_de_lege_vakkenlijst_kapt_geen_van_beide_regels_af(tekeningen):
                 assert M.text_width(r) <= M.MED_TEKST_W, (periode, r)
     finally:
         M.VAKKEN, M.PERIODE = origineel_v, origineel_p
+
+def test_periode_krijgt_een_budget_naast_de_kop_en_de_contextbalk(tekeningen):
+    # PERIODE was de enige tekst die zonder budget werd getekend: rechts
+    # uitgelijnd op 313 - 10*len, zonder acht te slaan op wat links op
+    # dezelfde regel staat. Vijf perioden ("P1 · P2 · P3 · P4 · P5", 22
+    # tekens) botsen dan met "N cijfers"; een periode zonder P-vorm
+    # ("Periode 1 · Periode 2 · Periode 3") loopt zelfs van het scherm en
+    # over "VAKKEN" heen. Het budget hoort, net als de vaknaam (het
+    # gemiddelde) en de docent (de chip), afgeleid te zijn van zijn buur.
+    origineel_p, origineel_v = M.PERIODE, M.VAKKEN
+    M.VAKKEN = [("wiskunde D", "7,0", [
+        ("Toets %d" % i, "6,0", "meta", "normaal") for i in range(12)
+    ])]
+    try:
+        for periode in ("P1 · P2 · P3 · P4 · P5",
+                         "Periode 1 · Periode 2 · Periode 3"):
+            M.PERIODE = periode
+            for tekenen in (lambda: M.toon_vakken(0, 0),
+                            lambda: M.toon_cijfers(0, 0)):
+                tekeningen.clear()
+                tekenen()
+                layoutregels.binnen_scherm(tekeningen, M)
+                layoutregels.geen_tekstoverlap(tekeningen, M)
+                layoutregels.tekst_op_andere_kleur(tekeningen, M)
+                layoutregels.binnen_zijn_blok(tekeningen, M)
+    finally:
+        M.PERIODE, M.VAKKEN = origineel_p, origineel_v
+
+def test_periode_krijgt_een_budget_ook_op_de_lege_vakkenlijst(tekeningen):
+    origineel_p, origineel_v = M.PERIODE, M.VAKKEN
+    M.VAKKEN = []
+    try:
+        for periode in ("P1 · P2 · P3 · P4 · P5",
+                         "Periode 1 · Periode 2 · Periode 3"):
+            tekeningen.clear()
+            M.PERIODE = periode
+            M.toon_vakken(0, 0)
+            layoutregels.binnen_scherm(tekeningen, M)
+            layoutregels.geen_tekstoverlap(tekeningen, M)
+            layoutregels.tekst_op_andere_kleur(tekeningen, M)
+            layoutregels.binnen_zijn_blok(tekeningen, M)
+    finally:
+        M.PERIODE, M.VAKKEN = origineel_p, origineel_v
 
 # --- randgevallen: niets buiten het scherm, niets over de buur ---
 #
@@ -1142,6 +1210,52 @@ def test_main_key_2_resets_the_subject_selection(tekeningen):
     assert ("draw_rect", 0, M.LIJST_Y + 24, 317, 20) in beeldjes[2]
     # beeld 4: na 1 en opnieuw 2 staat hij weer op de eerste
     assert ("draw_rect", 0, M.LIJST_Y, 317, 20) in beeldjes[4]
+
+def test_main_clear_from_vakken_returns_to_today_and_resets_selection(tekeningen):
+    # Carry-forward uit progress.md: "CLEAR vanuit vakken moet ook dag=0 en
+    # selectie=eerste lesrij zetten." De code zette alleen scroll en
+    # vak_scroll terug op 0 en liet dag en selectie staan: sta je op een
+    # andere dag met een late les geselecteerd, dan landt CLEAR vanuit
+    # vakken weer op die dag met de lijst bovenaan (scroll=0) en de
+    # selectie nog steeds op de oude, nu onzichtbare rij.
+    origineel_dagen, origineel_key = M.DAGEN, M.wait_key
+    twaalf_lessen = [_les(uur=str(i + 1)) for i in range(12)]
+    M.DAGEN = [
+        ("2026-09-01", "di 01-09", "vandaag", twaalf_lessen),
+        ("2026-09-02", "wo 02-09", "morgen", twaalf_lessen),
+    ]
+    # Naar dag 1, selectie zeven keer omlaag (rij-index 7), dan naar
+    # vakken en terug met CLEAR.
+    M.wait_key = _toetsen(M.K_RECHTS, *([M.K_OMLAAG] * 7), M.K_2,
+                          M.K_CLEAR, M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.DAGEN, M.wait_key = origineel_dagen, origineel_key
+    beeldjes, _ = _beeldjes(tekeningen)
+    terug = beeldjes[-1]
+    assert ("draw_text", 6, 21, "VANDAAG") in terug, \
+        "CLEAR vanuit vakken moet terug naar het vandaag-scherm, niet de vorige dag"
+    assert ("draw_rect", 0, M.LIJST_Y, 317, 34) in terug, \
+        "geen zichtbaar selectiekader op de eerste lesrij na CLEAR vanuit vakken"
+
+def test_main_clear_from_cijfers_resets_the_subject_selection(tekeningen):
+    # Dezelfde soort fout, één tak verderop: CLEAR vanuit cijfers zette
+    # vak_scroll terug op 0 maar liet vak staan, dus bleef vak 11
+    # geselecteerd terwijl de lijst vakken 1 t/m 6 toont -- geen zichtbare
+    # cursor.
+    origineel_vakken, origineel_key = M.VAKKEN, M.wait_key
+    M.VAKKEN = [("vak %d" % i, "", []) for i in range(12)]
+    M.wait_key = _toetsen(M.K_2, *([M.K_OMLAAG] * 10), M.K_ENTER,
+                          M.K_CLEAR, M.K_CLEAR, M.K_CLEAR)
+    try:
+        M.main()
+    finally:
+        M.VAKKEN, M.wait_key = origineel_vakken, origineel_key
+    beeldjes, _ = _beeldjes(tekeningen)
+    terug_op_vakken = beeldjes[-2]
+    assert ("draw_rect", 0, M.LIJST_Y, 317, 20) in terug_op_vakken, \
+        "geen zichtbaar selectiekader op het eerste vak na CLEAR vanuit cijfers"
 
 def test_main_flushes_every_frame_exactly_once(tekeningen):
     # main() bezit de presentatie: elke tekenfunctie tekent alleen, main()
