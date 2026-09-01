@@ -15,11 +15,24 @@
 
 const PANEEL = 'panel.html';
 
+// Zoekt een al geopend paneel zonder de permissie "tabs". runtime.getContexts
+// kent alleen de eigen pagina's van de extensie, en dat is precies waar we naar
+// zoeken; chrome.tabs.query zou over alle tabs van de gebruiker gaan en vraagt
+// daarom een permissie die we verder nergens voor nodig hebben.
+async function bestaandPaneel(url) {
+  if (!chrome.runtime.getContexts) return null;
+  const contexten = await chrome.runtime.getContexts({
+    contextTypes: ['TAB'], documentUrls: [url],
+  });
+  return contexten.find((c) => typeof c.tabId === 'number' && c.tabId >= 0)
+    || null;
+}
+
 async function openPaneel() {
   const url = chrome.runtime.getURL(PANEEL);
-  const [bestaand] = await chrome.tabs.query({ url });
+  const bestaand = await bestaandPaneel(url);
   if (bestaand) {
-    await chrome.tabs.update(bestaand.id, { active: true });
+    await chrome.tabs.update(bestaand.tabId, { active: true });
     await chrome.windows.update(bestaand.windowId, { focused: true });
     return;
   }

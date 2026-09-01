@@ -13,7 +13,8 @@ Twee programma's gaan naar het apparaat:
 
 ## Vereisten
 
-- Chrome op een desktop (Web Serial; dat werkt niet op Android of iOS).
+- Chrome 116 of nieuwer op een desktop (Web Serial; dat werkt niet op
+  Android of iOS).
 - Een USB-C-kabel naar de TI-84 Evo-T.
 - Een Magister-tab waar je op bent ingelogd, als ouder of als leerling.
 
@@ -108,11 +109,29 @@ leven, en dat bepaalt de hele opbouw van de extensie.
 
 ## Wat er met je token gebeurt
 
-De extensie leest het toegangstoken uit de `sessionStorage` van je eigen
-Magister-tab en gebruikt het alleen in de `Authorization`-header van de
-verzoeken aan Magister. Het gaat niet naar `chrome.storage`, niet naar de
-console en niet in een foutmelding. In `chrome.storage.local` staan alleen
-`kindId`, `kindNaam` en `laatsteSync`.
+Het content script op de Magister-pagina leest het toegangstoken uit de
+`sessionStorage` van je eigen tab en geeft het door aan het paneel. Daar
+belandt het in de `Authorization`-header van de verzoeken aan Magister, en
+nergens anders: niet in `chrome.storage`, niet in de console en niet in een
+foutmelding. In `chrome.storage.local` staan alleen `kindId`, `kindNaam` en
+`laatsteSync`.
+
+Omdat het token uit het content script komt en niet via `chrome.scripting`,
+blijft het bij een permissie en een host:
+
+| Wat | Waarvoor |
+| --- | --- |
+| `storage` | Onthouden voor welk kind deze rekenmachine is, en wanneer er voor het laatst is gesynct. |
+| `https://*.magister.net/*` | De pagina waar het content script op draait, en de enige plek waar de extensie gegevens ophaalt. |
+
+Verder gaat er niets naar buiten: geen server, geen account, geen analytics.
+De gegevens lopen van je eigen Magister-tab rechtstreeks de USB-kabel in.
+
+Eén randgeval hoort erbij. Een tab die al openstond toen de extensie werd
+geinstalleerd of bijgewerkt, draait nog geen content script en antwoordt dus
+niet. Dat is iets anders dan niet ingelogd zijn, en het krijgt daarom zijn
+eigen scherm: herlaad de Magister-tab. Je ziet het ook aan de sidebar -- staat
+het menu-item er niet, dan is dat dezelfde oorzaak.
 
 ## Wat Magister eigenaardig doet
 

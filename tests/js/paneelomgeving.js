@@ -170,6 +170,9 @@ export function nepOmgeving({
   opgeslagen = { kindId: 7, kindNaam: 'Fenna' },
   tabs = [{ id: 3, url: 'https://school.magister.net/leerling' }],
   token = 'geheim',
+  // false = een tab die al open stond toen de extensie werd geinstalleerd:
+  // die draait geen content script en antwoordt dus niet.
+  contentScript = true,
   status = {},
   aanmeldingen = [{ Id: 900, Begin: '2025-08-01', Einde: '2099-07-31',
     Studie: { Omschrijving: 'vwo 5' } }],
@@ -195,13 +198,20 @@ export function nepOmgeving({
   omgeving.chrome = {
     tabs: {
       query: async () => tabs,
+      // Het content script op de Magister-pagina antwoordt met het token.
+      // Draait het er niet, dan verwerpt sendMessage -- net als in Chrome.
+      sendMessage: async (id, bericht) => {
+        if (!contentScript) {
+          throw new Error('Could not establish connection. '
+            + 'Receiving end does not exist.');
+        }
+        if (!bericht || bericht.type !== 'token') return undefined;
+        return { token };
+      },
       create: async ({ url }) => { geopendeTabs.push(url); },
       // Het paneel draait in een eigen tabblad en sluit dat zelf.
       getCurrent: async () => ({ id: 99, url: 'chrome-extension://nep/panel.html' }),
       remove: async (id) => { omgeving.geslotenTabs.push(id); },
-    },
-    scripting: {
-      executeScript: async () => [{ result: token ? { token } : null }],
     },
     storage: {
       local: {

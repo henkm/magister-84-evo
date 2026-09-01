@@ -24,6 +24,15 @@ export const FOUTEN = {
     stap: 'Open Magister, log in als ouder en kom hier terug.',
     knop: 'Magister openen',
   },
+  'tab-herladen': {
+    titel: 'Sync gestopt',
+    kop: 'Herlaad je Magister-tab',
+    body: 'De extensie is net geinstalleerd of bijgewerkt, en je Magister-tab '
+      + 'draait nog de vorige versie mee. Daardoor kan de extensie er niet bij. '
+      + 'Er is niets naar de rekenmachine gestuurd.',
+    stap: 'Ververs de Magister-tab en klik daarna op Opnieuw proberen.',
+    knop: 'Opnieuw proberen',
+  },
   'sessie-verlopen': {
     titel: 'Sync gestopt',
     kop: 'Je Magister-sessie is verlopen',

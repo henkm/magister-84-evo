@@ -34,33 +34,33 @@ function ga(gebeurtenis) {
   render(toestand);
 }
 
-/**
- * Draait IN de Magister-tab. Moet zelfstandig zijn: geen imports, geen
- * verwijzingen naar variabelen van buiten.
- */
-function leesTokenUitTab() {
-  for (const sleutel of Object.keys(sessionStorage)) {
-    if (!sleutel.startsWith('oidc.user:')) continue;
-    try {
-      const u = JSON.parse(sessionStorage.getItem(sleutel));
-      if (u && u.access_token) return { token: u.access_token };
-    } catch (e) { /* geen bruikbare sleutel, volgende */ }
-  }
-  return null;
-}
-
 // Het token blijft in deze variabele voor de duur van een sync. Niet naar
 // chrome.storage, niet naar de console, niet in een foutmelding.
+//
+// Het content script op de Magister-pagina leest het uit sessionStorage en
+// stuurt het hierheen. Dat scheelt de permissie "scripting". De keerzijde: een
+// tab die al open stond toen de extensie werd geinstalleerd of bijgewerkt
+// draait nog geen content script en antwoordt dus niet. Dat is iets anders dan
+// niet ingelogd zijn, en het krijgt daarom zijn eigen foutscherm.
 async function haalToken() {
   const tabs = await chrome.tabs.query({ url: 'https://*.magister.net/*' });
   const bruikbaar = tabs.filter((t) => !t.url.startsWith('https://accounts.'));
+  let bereikt = false;
   for (const tab of bruikbaar) {
-    const [res] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id }, func: leesTokenUitTab,
-    });
-    if (res && res.result) {
-      return { token: res.result.token, tenant: new URL(tab.url).hostname };
+    let res;
+    try {
+      res = await chrome.tabs.sendMessage(tab.id, { type: 'token' });
+    } catch (e) {
+      continue; // geen content script in deze tab
     }
+    bereikt = true;
+    if (res && res.token) {
+      return { token: res.token, tenant: new URL(tab.url).hostname };
+    }
+  }
+  if (bruikbaar.length && !bereikt) {
+    throw new MagisterFout('tab-herladen',
+      'De Magister-tab draait nog geen content script.');
   }
   throw new MagisterFout('niet-ingelogd', 'Geen ingelogde Magister-tab gevonden.');
 }

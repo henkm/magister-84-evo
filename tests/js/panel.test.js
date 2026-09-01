@@ -61,6 +61,15 @@ test('niet ingelogd opent Magister en biedt daarna een weg terug', async () => {
     'zonder weg terug kan de gebruiker alleen het venster nog sluiten');
 });
 
+test('een tab zonder content script vraagt om herladen, niet om inloggen',
+  async () => {
+    // De tab stond al open toen de extensie werd geinstalleerd of bijgewerkt.
+    // Hij is wel degelijk ingelogd, dus "je bent niet ingelogd" zou de
+    // gebruiker de verkeerde kant op sturen.
+    const { dom } = await paneelKlaar({ contentScript: false });
+    assert.equal(dom.tekst('fout-kop'), 'Herlaad je Magister-tab');
+  });
+
 // --- 2 · afbreken breekt af ------------------------------------------------
 
 test('afbreken stopt de transfer bij het volgende pakket', async () => {
