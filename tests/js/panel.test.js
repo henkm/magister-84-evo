@@ -269,3 +269,28 @@ test('Klaar sluit het eigen tabblad, niet niets', async () => {
   assert.deepEqual(omgeving.geslotenTabs, [99]);
   assert.ok(!omgeving.gesloten, 'window.close() is de verkeerde weg in een tab');
 });
+
+// --- de demostand ----------------------------------------------------------
+
+test('?demo=1 toont de schermen zonder Magister en zonder rekenmachine',
+  async () => {
+    // Een beoordelaar van de Web Store kan niet inloggen op Magister: zo'n
+    // account hangt aan een school, dus er valt er geen uit te delen. Deze
+    // stand is de enige manier waarop hij ziet wat de extensie doet.
+    const omgeving = nepOmgeving({ zoekstring: '?demo=1' });
+    await laadPaneel(omgeving);
+    omgeving.dom.klaar();
+    await adem();
+    assert.equal(omgeving.dom.scherm(), 'klaar');
+    assert.deepEqual(omgeving.opgevraagd, [],
+      'de demostand mag Magister niet aanroepen');
+  });
+
+test('zonder de vlag haalt hetzelfde instappunt echte gegevens op', async () => {
+  const omgeving = nepOmgeving();
+  await laadPaneel(omgeving);
+  omgeving.dom.klaar();
+  await totScherm(omgeving.dom, 'klaar');
+  assert.ok(omgeving.opgevraagd.some((u) => u.includes('/api/account')),
+    'zonder demo-vlag hoort het paneel gewoon op te starten');
+});

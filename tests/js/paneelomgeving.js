@@ -59,6 +59,7 @@ const SCHERMEN = ['kind-kiezen', 'klaar', 'koppelen', 'bezig', 'gereed', 'fout']
 
 export function nepDom() {
   const knopen = new Map();
+  const luisteraars = {};
   const doc = {
     getElementById(id) {
       if (!knopen.has(id)) knopen.set(id, new NepElement('div'));
@@ -66,13 +67,18 @@ export function nepDom() {
     },
     createElement: (tag) => new NepElement(tag),
     createElementNS: (ns, tag) => new NepElement(tag),
-    addEventListener() { /* DOMContentLoaded komt in een test niet */ },
+    addEventListener(soort, fn) {
+      if (!luisteraars[soort]) luisteraars[soort] = [];
+      luisteraars[soort].push(fn);
+    },
   };
   doc.el = (id) => doc.getElementById(id);
   doc.tekst = (id) => doc.getElementById(id).textContent;
   doc.knop = (id) => doc.getElementById(id);
   doc.scherm = () => SCHERMEN.find((n) => !doc.getElementById(`s-${n}`).hidden)
     || null;
+  // DOMContentLoaded komt in een test niet vanzelf; dit is de knop ervoor.
+  doc.klaar = () => (luisteraars.DOMContentLoaded || []).forEach((f) => f());
   return doc;
 }
 
@@ -181,6 +187,8 @@ export function nepOmgeving({
   poort = nepPoort(),
   poorten = null,
   keuzeFout = null,
+  // De querystring van panel.html. ?demo=1 zet de demostand aan.
+  zoekstring = '',
 } = {}) {
   const dom = nepDom();
   const opgevraagd = [];
@@ -189,7 +197,7 @@ export function nepOmgeving({
   const keuzes = [];
   const geslotenTabs = [];
   const omgeving = { dom, opgevraagd, geopendeTabs, geslotenTabs, opgeslagen,
-    poort, poorten, status, keuzes, keuzeFout };
+    poort, poorten, status, keuzes, keuzeFout, zoekstring };
 
   const antwoord = (json, code = 200) => ({
     status: code, ok: code < 400, json: async () => json,
@@ -252,6 +260,7 @@ export async function laadPaneel(omgeving) {
   globalThis.chrome = omgeving.chrome;
   globalThis.fetch = omgeving.fetch;
   globalThis.window = { close() { omgeving.gesloten = true; } };
+  globalThis.location = { search: omgeving.zoekstring || '' };
   Object.defineProperty(globalThis, 'navigator', {
     configurable: true,
     value: {

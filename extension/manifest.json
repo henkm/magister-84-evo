@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Magister naar TI-84",
+  "name": "Rooster naar je rekenmachine",
   "version": "1.0.0",
   "minimum_chrome_version": "116",
-  "description": "Stuurt rooster en cijfers uit Magister naar een TI-84 Evo-T.",
+  "description": "Stuurt het rooster en de cijfers uit je eigen Magister-tab over USB naar een TI-84 Evo-T.",
   "action": {
-    "default_title": "Magister naar TI-84 syncen",
+    "default_title": "Rooster naar je rekenmachine",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",

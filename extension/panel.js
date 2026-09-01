@@ -10,7 +10,15 @@ import { SerieelTransport, bestaandePoort, kiesPoort } from './src/transport.js'
 
 // Demostand: panel.html rechtstreeks in een tab geopend heeft geen chrome.*
 // en geen Web Serial. Alles wat die nodig heeft, kijkt hier eerst.
-const inExtensie = typeof chrome !== 'undefined' && Boolean(chrome.tabs);
+//
+// ?demo=1 zet diezelfde stand aan binnen de extensie. Dat is de enige manier
+// waarop iemand zonder Magister-account alle schermen kan zien, en die is er:
+// een Magister-account hangt aan een school, dus aan een beoordelaar van de
+// Web Store valt er geen uit te delen.
+const demoGevraagd = typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('demo') === '1';
+const inExtensie = !demoGevraagd
+  && typeof chrome !== 'undefined' && Boolean(chrome.tabs);
 
 const MAGISTER_URL = 'https://magister.net/';
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -235,7 +243,7 @@ function render(t) {
   const titels = { 'bezig': 'Bezig met syncen', 'gereed': 'Sync klaar' };
   $('koptitel').textContent = t.scherm === 'fout'
     ? FOUTEN[t.fout.soort].titel
-    : (titels[t.scherm] || 'Magister naar TI-84');
+    : (titels[t.scherm] || 'Rooster naar je rekenmachine');
 
   if (t.scherm === 'kind-kiezen') toonKindkaarten(t);
   if (t.scherm === 'klaar') {

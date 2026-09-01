@@ -1,4 +1,4 @@
-# Magister naar TI-84
+# Rooster naar je rekenmachine
 
 Chrome-extensie die het rooster en de cijfers uit je eigen, ingelogde
 Magister-tab leest en ze als twee Python-programma's naar een TI-84 Evo-T
@@ -23,7 +23,7 @@ Twee programma's gaan naar het apparaat:
 1. Open `chrome://extensions`.
 2. Zet rechtsboven **Ontwikkelaarsmodus** aan.
 3. Klik **Uitgepakte extensie laden** en kies de map `extension/`.
-4. Het blauwe M-pictogram verschijnt in de werkbalk.
+4. Het rekenmachine-pictogram verschijnt in de werkbalk.
 
 ## Gebruiken
 

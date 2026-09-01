@@ -13,27 +13,30 @@ import zlib
 WORTEL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAP = os.path.join(WORTEL, "extension", "icons")
 
-BLAUW = (11, 107, 181)
-WIT = (255, 255, 255)
-ORANJE = (245, 130, 11)
+GRAFIET = (38, 44, 56)
+WIT = (245, 247, 250)
+SCHERM = (46, 160, 120)
 
 RASTER = 16
 MATEN = (16, 32, 48, 128)
 
-# De M: twee dikke stijlen met een ondiepe V ertussen. Per rij de cellen die
-# wit worden.
-M_CELLEN = {
-    4:  [2, 3, 10, 11],
-    5:  [2, 3, 4, 9, 10, 11],
-    6:  [2, 3, 5, 8, 10, 11],
-    7:  [2, 3, 6, 7, 10, 11],
-    8:  [2, 3, 10, 11],
-    9:  [2, 3, 10, 11],
-    10: [2, 3, 10, 11],
-    11: [2, 3, 10, 11],
-}
-# De oranje stip, rechtsonder naast de M.
-STIP_CELLEN = [(13, 10), (14, 10), (13, 11), (14, 11)]
+# Een rekenmachine: kastje, venster, toetsen. Hetzelfde motief als het
+# menu-item dat de extensie in de Magister-sidebar hangt, maar blokkerig
+# in plaats van lijnwerk, want op 16 px is lijnwerk pap.
+#
+# Bewust geen letter en geen huisstijlkleur van iemand anders: dit is een
+# eigen hulpstuk, geen product van de school of van Texas Instruments.
+KAST = (3, 12, 1, 14)      # x van, x tot en met, y van, y tot en met
+VENSTER = (4, 11, 3, 5)
+TOETS_X = ((4, 5), (7, 8), (10, 11))
+TOETS_Y = ((8, 9), (11, 12))
+
+
+def _vul(uit, vak, kleur):
+    x0, x1, y0, y1 = vak
+    for y in range(y0, y1 + 1):
+        for x in range(x0, x1 + 1):
+            uit[(x, y)] = kleur
 
 
 def cellen():
@@ -41,12 +44,12 @@ def cellen():
     uit = {}
     for y in range(RASTER):
         for x in range(RASTER):
-            uit[(x, y)] = BLAUW
-    for y, xs in M_CELLEN.items():
-        for x in xs:
-            uit[(x, y)] = WIT
-    for x, y in STIP_CELLEN:
-        uit[(x, y)] = ORANJE
+            uit[(x, y)] = GRAFIET
+    _vul(uit, KAST, WIT)
+    _vul(uit, VENSTER, SCHERM)
+    for xs in TOETS_X:
+        for ys in TOETS_Y:
+            _vul(uit, (xs[0], xs[1], ys[0], ys[1]), GRAFIET)
     return uit
 
 
@@ -94,7 +97,7 @@ def schrijf():
 def voorbeeld():
     """ASCII-weergave van het raster, om het ontwerp te kunnen nakijken."""
     raster = cellen()
-    teken = {BLAUW: ".", WIT: "#", ORANJE: "o"}
+    teken = {GRAFIET: ".", WIT: "#", SCHERM: "o"}
     return "\n".join(
         "".join(teken[raster[(x, y)]] for x in range(RASTER))
         for y in range(RASTER))
