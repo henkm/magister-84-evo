@@ -374,10 +374,10 @@ def toon_lesdetail(dag_i, rij_i, scroll=0):
     kop("LESUUR " + rij[L_UUR], DAGEN[dag_i][1])
 
     _, accent, badge, voorgrond = _lesregel_kleuren(rij[L_STATUS])
-    vlak(0, 22, 319, 52, BAND)
-    vlak(0, 22, 4, 52, accent)
-    vlak(10, 30, BADGE_W, 18, badge)
-    tekst(10 + (BADGE_W - text_width(rij[L_UUR])) // 2, 34, rij[L_UUR], WIT)
+    vlak(0, 22, 319, 54, BAND)
+    vlak(0, 22, 4, 54, accent)
+    vlak(10, 24, BADGE_W, BADGE_H, badge)
+    tekst(10 + (BADGE_W - text_width(rij[L_UUR])) // 2, 26, rij[L_UUR], WIT)
 
     chip = rij[L_CHIP]
     chip_b = chip_breedte(chip) if chip else 0
@@ -388,43 +388,46 @@ def toon_lesdetail(dag_i, rij_i, scroll=0):
     # nadat de tijd-positie bekend is, zodat de twee elkaar nooit raken.
     tijd = rij[L_BEGIN] + "-" + rij[L_EIND]
     tijd_x = right_x(tijd)
-    tekst(54, 31, truncate(rij[L_VAK], tijd_x - 8 - 54), voorgrond)
-    tekst(54, 45, truncate("lokaal " + rij[L_LOKAAL], RIGHT - 54), GEDEMPT)
+    tekst(54, 26, truncate(rij[L_VAK], tijd_x - 8 - 54), voorgrond)
+    tekst(54, 42, truncate("lokaal " + rij[L_LOKAAL], RIGHT - 54), GEDEMPT)
     # Idem voor de docent: die deelt zijn regel met de chip als die er is.
     docent_breedte = (RIGHT - chip_b - 8 - 54) if chip else (RIGHT - 54)
-    tekst(54, 59, truncate(rij[L_DOCENT], docent_breedte), GEDEMPT)
-    tekst(tijd_x, 31, tijd, GEDEMPT)
+    tekst(54, 58, truncate(rij[L_DOCENT], docent_breedte), GEDEMPT)
+    tekst(tijd_x, 26, tijd, GEDEMPT)
     if chip:
-        vlak(RIGHT - chip_b, 57, chip_b, 14, CHIP_KLEUR[chip])
-        tekst(RIGHT - chip_b + 4, 59, chip, WIT)
+        vlak(RIGHT - chip_b, 56, chip_b, CHIP_H, CHIP_KLEUR[chip])
+        tekst(RIGHT - chip_b + 4, 58, chip, WIT)
 
     if rij[L_TEKST]:
         label = "toets" if chip == "TOETS" else "huiswerk"
-        vlak(0, 78, 319, 17, WIT)
-        tekst(6, 81, label, BLAUW)
-        vlak(0, 95, 319, 1, AZUUR)
-        # De omschrijving zit op een vast anker (161/173) zodat hij niet
-        # meebeweegt met de lengte van het huiswerk. Het lichaam wordt
-        # daarom altijd tot 5 regels beperkt, ook zonder omschrijving - vijf
-        # regels vanaf y=101 in stappen van 12 eindigt op y=149, ruim boven
-        # het vaste anker. Is er meer, dan komt dat niet op een anker dat de
-        # omschrijving overschrijft, maar als "v meer" op de sectiebalk
-        # zelf (y=81), die nooit door iets anders bezet wordt.
+        vlak(0, 76, 319, 17, WIT)
+        tekst(6, 77, label, BLAUW)
+        vlak(0, 93, 319, 1, AZUUR)
+        # De omschrijving zit op een vast anker (160/176) zodat hij niet
+        # meebeweegt met de lengte van het huiswerk. Van 96 tot 191 passen
+        # precies zes regels van 16 px (96, 112, 128, 144, 160, 176); zonder
+        # omschrijving mag het lichaam alle zes gebruiken, met omschrijving
+        # blijven de laatste twee (160 en 176) daarvoor gereserveerd en
+        # blijft het lichaam tot vier regels. Is er meer, dan komt dat niet
+        # op een anker dat de omschrijving zou overschrijven, maar als
+        # "v meer" op de sectiebalk zelf (y=77), die nooit door iets anders
+        # bezet wordt.
+        max_regels = 4 if rij[L_OMS] else 6
         alle_regels = wrap(rij[L_TEKST], 307)
-        scroll = max(0, min(scroll, max(0, len(alle_regels) - 5)))
-        regels = alle_regels[scroll:scroll + 5]
+        scroll = max(0, min(scroll, max(0, len(alle_regels) - max_regels)))
+        regels = alle_regels[scroll:scroll + max_regels]
         for n in range(len(regels)):
-            tekst(6, 101 + 12 * n, regels[n], DONKER)
-        rest = len(alle_regels) - scroll - 5
+            tekst(6, 96 + 16 * n, regels[n], DONKER)
+        rest = len(alle_regels) - scroll - max_regels
         if rest > 0:
-            tekst(right_x("v meer"), 81, "v meer", GEDEMPT)
+            tekst(right_x("v meer"), 77, "v meer", GEDEMPT)
         if rij[L_OMS]:
-            tekst(6, 161, "omschrijving", GEDEMPT)
-            tekst(6, 173, truncate(rij[L_OMS], 307), GEDEMPT)
+            tekst(6, 160, "omschrijving", GEDEMPT)
+            tekst(6, 176, truncate(rij[L_OMS], 307), GEDEMPT)
     elif rij[L_OMS]:
-        tekst(6, 101, truncate(rij[L_OMS], 307), GEDEMPT)
+        tekst(6, 96, truncate(rij[L_OMS], 307), GEDEMPT)
     else:
-        tekst(6, 101, "geen huiswerk of toets", GEDEMPT)
+        tekst(6, 96, "geen huiswerk of toets", GEDEMPT)
 
     voetbalk("<> les  CLEAR terug")
 

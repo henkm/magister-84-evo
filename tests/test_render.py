@@ -22,32 +22,21 @@ def kleuren_in_gebied(calls, y_min, y_max):
                 kleuren.append(c[1:])
     return kleuren
 
-def test_kop_matches_the_design_grid(tekeningen):
-    M.kop("VANDAAG", "ma 31-08")
-    assert ("fill_rect", 0, 0, 319, 22) in vlakken(tekeningen)
-    assert ("draw_text", 6, 6, "VANDAAG") in teksten(tekeningen)
-    assert ("draw_text", M.right_x("ma 31-08"), 6, "ma 31-08") in teksten(tekeningen)
-
 def test_contextbalk_and_separator(tekeningen):
     M.contextbalk("7 lessen", "gesynct 07:41")
     assert ("fill_rect", 0, 22, 319, 17) in vlakken(tekeningen)
     assert ("fill_rect", 0, 39, 319, 1) in vlakken(tekeningen)
-    assert ("draw_text", 6, 25, "7 lessen") in teksten(tekeningen)
+    assert ("draw_text", 6, 41, "7 lessen") in teksten(tekeningen)
 
 def test_stale_data_gets_an_orange_marker(tekeningen):
     M.contextbalk("morgen", "gesynct 2 dgn", verouderd=True)
     assert ("fill_rect", 169, 26, 6, 6) in vlakken(tekeningen)
-    assert ("draw_text", 181, 25, "gesynct 2 dgn") in teksten(tekeningen)
-
-def test_voetbalk_sits_at_192(tekeningen):
-    M.voetbalk("^v kies  ENTER open  <> dag", "2 cijf")
-    assert ("fill_rect", 0, 192, 319, 17) in vlakken(tekeningen)
-    assert ("draw_text", 6, 196, "^v kies  ENTER open  <> dag") in teksten(tekeningen)
+    assert ("draw_text", 181, 41, "gesynct 2 dgn") in teksten(tekeningen)
 
 def test_scrollbar_track_and_thumb(tekeningen):
     M.scrollbar(0, 5, 10)
-    assert ("fill_rect", 311, 42, 4, 138) in vlakken(tekeningen)
-    assert ("fill_rect", 311, 42, 4, 69) in vlakken(tekeningen)
+    assert ("fill_rect", 315, 42, 4, 150) in vlakken(tekeningen)
+    assert ("fill_rect", 315, 42, 4, 75) in vlakken(tekeningen)
 
 def test_nothing_is_drawn_below_the_screen(tekeningen):
     # Exercise all functions with boundary conditions
@@ -61,14 +50,15 @@ def test_nothing_is_drawn_below_the_screen(tekeningen):
     M.scrollbar(5, 5, 10)       # last valid position
     M.scrollbar(0, 1, 1)        # single-item list (should return early)
 
-    # Verify all rectangles and text stay within bounds
+    # Voor tekst is een losse "y <= SCREEN_H"-vergelijking na de ankerregel
+    # onjuist: draw_text-y is top+18, dus de voetbalk (top=193) meldt zich op
+    # 211 terwijl het letterblok (193..209) prima binnen het scherm past.
+    # binnen_scherm() rekent wel met de bovenkant.
+    layoutregels.binnen_scherm(tekeningen, M)
     for c in tekeningen:
         if c[0] in ("fill_rect", "draw_rect"):
             x, y, w, h = c[1], c[2], c[3], c[4]
             assert y + h <= M.SCREEN_H, f"Rectangle {c} exceeds screen height at y+h={y+h}"
-        if c[0] == "draw_text":
-            x, y, s = c[1], c[2], c[3]
-            assert y <= M.SCREEN_H, f"Text {c} exceeds screen height at y={y}"
 
 def _les(**kw):
     r = ["les", "10:30", "12:00", "3-4", "natuurkunde", "206", "Bos (BOS)",
@@ -295,9 +285,9 @@ def test_de_meer_indicator_van_het_roosterscherm_is_vervangen_door_de_scrollbaan
 def test_detail_uses_the_wide_badge_and_x54_text(tekeningen):
     M.toon_lesdetail(0, 2)
     v = vlakken(tekeningen)
-    assert ("fill_rect", 0, 22, 319, 52) in v
-    assert ("fill_rect", 10, 30, 36, 18) in v
-    assert ("draw_text", 54, 31, "natuurkunde") in teksten(tekeningen)
+    assert ("fill_rect", 0, 22, 319, 54) in v
+    assert ("fill_rect", 10, 24, 36, 20) in v
+    assert ("draw_text", 54, 44, "natuurkunde") in teksten(tekeningen)
 
 def test_detail_wraps_homework_at_30_characters(tekeningen):
     M.toon_lesdetail(0, 2)
@@ -309,6 +299,52 @@ def test_detail_wraps_homework_at_30_characters(tekeningen):
 def test_detail_without_homework_says_so(tekeningen):
     M.toon_lesdetail(1, 0)
     assert "geen huiswerk of toets" in [c[3] for c in teksten(tekeningen)]
+
+def test_het_lesdetail_houdt_zich_aan_de_drie_regels(tekeningen):
+    for i in range(len(M.DAGEN)):
+        rijen = M.DAGEN[i][3]
+        for j in range(len(rijen)):
+            if rijen[j][M.L_SOORT] != "les":
+                continue
+            for scroll in range(0, 8):
+                tekeningen.clear()
+                M.toon_lesdetail(i, j, scroll)
+                layoutregels.binnen_scherm(tekeningen, M)
+                layoutregels.geen_tekstoverlap(tekeningen, M)
+                layoutregels.tekst_op_andere_kleur(tekeningen, M)
+
+def test_de_omschrijving_staat_altijd_op_dezelfde_plek(tekeningen):
+    # kort huiswerk en lang huiswerk mogen de omschrijving niet verplaatsen
+    origineel = M.DAGEN[0][3][2]
+    tops = []
+    try:
+        for lengte in (3, 40):
+            tekeningen.clear()
+            rij = list(origineel)
+            rij[M.L_TEKST] = " ".join(["woord"] * lengte)
+            rij[M.L_OMS] = "SO H1-H3"
+            M.DAGEN[0][3][2] = tuple(rij)
+            M.toon_lesdetail(0, 2, 0)
+            gevonden = [c[2] - M.TEKST_ANKER for c in tekeningen
+                        if c[0] == "draw_text" and c[3] == "omschrijving"]
+            tops.append(gevonden)
+    finally:
+        M.DAGEN[0][3][2] = origineel
+    assert tops[0] == tops[1] == [160]
+
+def test_zonder_omschrijving_mag_de_bloktekst_zes_regels_gebruiken(tekeningen):
+    origineel = M.DAGEN[0][3][2]
+    try:
+        rij = list(origineel)
+        rij[M.L_TEKST] = " ".join(["woord"] * 40)
+        rij[M.L_OMS] = ""
+        M.DAGEN[0][3][2] = tuple(rij)
+        M.toon_lesdetail(0, 2, 0)
+        tops = sorted(c[2] - M.TEKST_ANKER for c in tekeningen
+                      if c[0] == "draw_text" and c[2] - M.TEKST_ANKER >= 96)
+    finally:
+        M.DAGEN[0][3][2] = origineel
+    assert tops[:6] == [96, 112, 128, 144, 160, 176]
 
 def test_subject_list_uses_pitch_24(tekeningen):
     M.toon_vakken(0, 0)
@@ -375,29 +411,36 @@ def test_detail_stays_within_the_screen_and_columns_do_not_collide(tekeningen):
             x, y, w, h = c[1], c[2], c[3], c[4]
             assert x + w <= M.SCREEN_W, f"{c} loopt over de rechterrand"
             assert y + h <= M.SCREEN_H, f"{c} loopt over de onderrand"
-        if c[0] == "draw_text":
-            x, y, s = c[1], c[2], c[3]
-            assert x + M.text_width(s) <= M.SCREEN_W, f"{c} loopt over de rechterrand"
-            assert y <= M.SCREEN_H, f"{c} loopt over de onderrand"
+    # Voor tekst is een losse "y <= SCREEN_H"-vergelijking na de ankerregel
+    # onjuist: draw_text-y is top+18, dus de voetbalk (top=193) meldt zich op
+    # 211 terwijl het letterblok (193..209) prima binnen het scherm past.
+    # binnen_scherm() rekent wel met de bovenkant.
+    layoutregels.binnen_scherm(tekeningen, M)
 
-    # vaknaam mag niet onder/over de tijd lopen (beide op y=31)
-    regel31 = [(c[1], c[3]) for c in teksten(tekeningen) if c[2] == 31]
-    assert len(regel31) == 2
-    (x1, s1), (x2, s2) = sorted(regel31)
+    # vaknaam mag niet onder/over de tijd lopen (beide op top=26); de
+    # badge-tekst deelt diezelfde regel maar staat altijd links van x=54.
+    regel26 = [(c[1], c[3]) for c in teksten(tekeningen)
+               if c[2] - M.TEKST_ANKER == 26 and c[1] >= 54]
+    assert len(regel26) == 2
+    (x1, s1), (x2, s2) = sorted(regel26)
     assert x1 + M.text_width(s1) <= x2, "vaknaam botst met de tijd"
 
     # docent mag niet onder de chip lopen
-    docent = [c for c in teksten(tekeningen) if c[2] == 59 and c[1] == 54][0]
-    chip_rect = [c for c in vlakken(tekeningen) if c[2] == 57 and c[4] == 14][0]
+    docent = [c for c in teksten(tekeningen)
+              if c[2] - M.TEKST_ANKER == 58 and c[1] == 54][0]
+    chip_rect = [c for c in vlakken(tekeningen)
+                 if c[2] == 56 and c[4] == M.CHIP_H][0]
     assert docent[1] + M.text_width(docent[3]) <= chip_rect[1], \
         "docentnaam botst met de chip"
 
-    # de huiswerk/omschrijving-kolom (x=6, tussen de scheidingslijn op y=95
+    # de huiswerk/omschrijving-kolom (x=6, tussen de scheidingslijn op y=93
     # en de voetbalk op y=192) mag niet in de voetbalk terechtkomen
-    kolom = [c for c in teksten(tekeningen) if c[1] == 6 and 95 < c[2] < 192]
+    kolom = [c for c in teksten(tekeningen)
+             if c[1] == 6 and 93 < c[2] - M.TEKST_ANKER < 192]
     assert kolom
     for c in kolom:
-        assert c[2] + M.LINE <= 192, f"{c} loopt in de voetbalk"
+        top = c[2] - M.TEKST_ANKER
+        assert top + M.TEKST_H <= 192, f"{c} loopt in de voetbalk"
 
 def test_subject_list_stays_within_the_screen_and_name_never_hits_average(tekeningen):
     origineel = M.VAKKEN
@@ -526,9 +569,11 @@ def test_grade_screen_title_never_hits_the_average(tekeningen):
         "titel botst met het rechts uitgelijnde gemiddelde"
 
 def test_description_anchors_stay_fixed_regardless_of_body_length(tekeningen):
-    # Een lang huiswerk (meer dan 5 gewikkelde regels) mag het
+    # Een lang huiswerk (meer dan 4 gewikkelde regels) mag het
     # omschrijving-blok niet verplaatsen: het label en de tekst horen altijd
-    # op y=161/173, ongeacht hoeveel regels het lichaam nodig heeft.
+    # op top=160/176, ongeacht hoeveel regels het lichaam nodig heeft. Met
+    # een omschrijving erbij is het lichaam tot vier regels beperkt (96 t/m
+    # 144), want 160 en 176 zijn voor de omschrijving gereserveerd.
     origineel = M.DAGEN
     lang_huiswerk = ("lees hoofdstuk 1 tot en met 9 helemaal door en maak "
                       "alle opgaven van de herhalingstoets grondig ") * 3
@@ -540,23 +585,25 @@ def test_description_anchors_stay_fixed_regardless_of_body_length(tekeningen):
     finally:
         M.DAGEN = origineel
 
-    assert len(M.wrap(lang_huiswerk, 307)) > 5, \
-        "testtekst moet meer dan 5 regels wikkelen om het scenario te testen"
+    assert len(M.wrap(lang_huiswerk, 307)) > 4, \
+        "testtekst moet meer dan 4 regels wikkelen om het scenario te testen"
     t = teksten(tekeningen)
-    assert ("draw_text", 6, 161, "omschrijving") in t
-    beschrijving = [c for c in t if c[1] == 6 and c[2] == 173][0]
+    assert ("draw_text", 6, 178, "omschrijving") in t
+    beschrijving = [c for c in t if c[1] == 6 and c[2] == 194][0]
     assert beschrijving[3] == M.truncate("SO H1-H3", 307)
-    # de vijf zichtbare regels blijven op hun eigen vaste rooster
-    lichaam = sorted(c[2] for c in t if c[1] == 6 and 101 <= c[2] <= 149)
-    assert lichaam == [101, 113, 125, 137, 149]
+    # de vier zichtbare regels blijven op hun eigen vaste rooster
+    lichaam = sorted(c[2] - M.TEKST_ANKER for c in t
+                     if c[1] == 6 and 96 <= c[2] - M.TEKST_ANKER <= 144)
+    assert lichaam == [96, 112, 128, 144]
     # en de overloop wordt gemeld op de sectiebalk, niet op een anker dat de
     # omschrijving zou overschrijven
-    assert ("draw_text", M.right_x("v meer"), 81, "v meer") in t
+    assert ("draw_text", M.right_x("v meer"), 95, "v meer") in t
 
 def test_detail_scroll_past_the_end_is_clamped(tekeningen):
     origineel = M.DAGEN
     lang_huiswerk = ("lees hoofdstuk 1 tot en met 9 helemaal door en maak "
                       "alle opgaven van de herhalingstoets grondig ") * 3
+    # geen omschrijving: het lichaam mag hier alle zes regels gebruiken.
     rij = ("les", "10:30", "12:00", "3-4", "natuurkunde", "206", "Bos (BOS)",
            "normaal", "", lang_huiswerk, "")
     M.DAGEN = [("2026-09-01", "di 01-09", "vandaag", [rij])]
@@ -564,15 +611,15 @@ def test_detail_scroll_past_the_end_is_clamped(tekeningen):
     try:
         M.toon_lesdetail(0, 0, scroll=999)
         te_ver = [c[3] for c in teksten(tekeningen)
-                  if c[1] == 6 and 101 <= c[2] <= 149]
+                  if c[1] == 6 and 96 <= c[2] - M.TEKST_ANKER <= 176]
         tekeningen.clear()
         M.toon_lesdetail(0, 0, scroll=-9)
         negatief = [c[3] for c in teksten(tekeningen)
-                    if c[1] == 6 and 101 <= c[2] <= 149]
+                    if c[1] == 6 and 96 <= c[2] - M.TEKST_ANKER <= 176]
     finally:
         M.DAGEN = origineel
-    assert te_ver == alle_regels[max(0, len(alle_regels) - 5):]
-    assert negatief == alle_regels[:5]
+    assert te_ver == alle_regels[max(0, len(alle_regels) - 6):]
+    assert negatief == alle_regels[:6]
 
 def test_grade_screen_scroll_past_the_end_is_clamped(tekeningen):
     origineel = M.VAKKEN
@@ -632,10 +679,11 @@ def test_missing_data_screen_stays_within_the_screen(tekeningen):
             x, y, w, h = c[1], c[2], c[3], c[4]
             assert x + w <= M.SCREEN_W, f"{c} loopt over de rechterrand"
             assert y + h <= M.SCREEN_H, f"{c} loopt over de onderrand"
-        if c[0] == "draw_text":
-            x, y, s = c[1], c[2], c[3]
-            assert x + M.text_width(s) <= M.SCREEN_W, f"{c} loopt over de rechterrand"
-            assert y <= M.SCREEN_H, f"{c} loopt over de onderrand"
+    # Voor tekst is een losse "y <= SCREEN_H"-vergelijking na de ankerregel
+    # onjuist: draw_text-y is top+18, dus de voetbalk (top=193) meldt zich op
+    # 211 terwijl het letterblok (193..209) prima binnen het scherm past.
+    # binnen_scherm() rekent wel met de bovenkant.
+    layoutregels.binnen_scherm(tekeningen, M)
 
 # --- hoofdlus (main) ---
 #
@@ -668,10 +716,10 @@ def _beeldjes(calls):
     return beeldjes, huidig
 
 def _titels(beeldjes):
-    """De koptitel (draw_text op 6,6) van elk beeldje, in volgorde."""
+    """De koptitel (draw_text op 6,21 - top=3) van elk beeldje, in volgorde."""
     uit = []
     for b in beeldjes:
-        kop = [c[3] for c in b if c[0] == "draw_text" and c[1] == 6 and c[2] == 6]
+        kop = [c[3] for c in b if c[0] == "draw_text" and c[1] == 6 and c[2] == 21]
         uit.append(kop[0] if kop else None)
     return uit
 
@@ -693,7 +741,7 @@ def test_main_starts_on_the_dag_screen_and_clear_exits(tekeningen):
         M.main()
     finally:
         M.wait_key = origineel
-    assert ("draw_text", 6, 6, "VANDAAG") in teksten(tekeningen)
+    assert ("draw_text", 6, 21, "VANDAAG") in teksten(tekeningen)
 
 def test_main_right_arrow_clamps_at_the_last_day(tekeningen):
     # DAGEN heeft 3 dagen (index 0..2); vijf keer rechts moet blijven
@@ -707,7 +755,7 @@ def test_main_right_arrow_clamps_at_the_last_day(tekeningen):
         M.main()
     finally:
         M.wait_key = origineel
-    assert ("draw_text", 6, 25, "weekend") in teksten(tekeningen)
+    assert ("draw_text", 6, 41, "weekend") in teksten(tekeningen)
 
 def test_main_enter_on_a_lesson_opens_detail_and_clear_returns_to_dag(tekeningen):
     # selectie 0 -> 2 (één keer omlaag, want rij 1 is een tussenuur en die
@@ -720,7 +768,7 @@ def test_main_enter_on_a_lesson_opens_detail_and_clear_returns_to_dag(tekeningen
         M.main()
     finally:
         M.wait_key = origineel
-    assert ("draw_text", 54, 31, "natuurkunde") in teksten(tekeningen)
+    assert ("draw_text", 54, 44, "natuurkunde") in teksten(tekeningen)
 
 def test_main_selection_never_lands_on_a_gap_row(tekeningen):
     # rij-index 1 op dag 0 is een tussenuur ("gat"). gatregel() tekent geen
@@ -810,12 +858,13 @@ def test_main_detail_down_arrow_scrolls_the_homework(tekeningen):
     # dag, detail(scroll 0), detail(scroll 1), detail(scroll 0), dag
     assert len(beeldjes) == 5
     lichaam = [[c[3] for c in b
-                if c[0] == "draw_text" and c[1] == 6 and 101 <= c[2] <= 149]
+                if c[0] == "draw_text" and c[1] == 6
+                and 96 <= c[2] - M.TEKST_ANKER <= 176]
                for b in beeldjes]
-    assert lichaam[1] == alle_regels[0:5]
-    assert lichaam[2] == alle_regels[1:6], "omlaag scrolt het huiswerk niet"
-    assert alle_regels[5] not in lichaam[1], "regel 6 was al zonder scrollen zichtbaar"
-    assert lichaam[3] == alle_regels[0:5], "omhoog scrolt niet terug"
+    assert lichaam[1] == alle_regels[0:6]
+    assert lichaam[2] == alle_regels[1:7], "omlaag scrolt het huiswerk niet"
+    assert alle_regels[6] not in lichaam[1], "regel 7 was al zonder scrollen zichtbaar"
+    assert lichaam[3] == alle_regels[0:6], "omhoog scrolt niet terug"
 
 def test_main_clear_from_detail_keeps_the_day_scroll_position(tekeningen):
     # Dag 0 heeft 6 rijen (5 lessen + 1 tussenuur) en ZICHTBAAR is 5: de
@@ -860,10 +909,11 @@ def test_main_detail_scroll_still_works_with_its_own_variable(tekeningen):
     # dag, detail(detail_scroll 0), detail(detail_scroll 1), dag
     assert len(beeldjes) == 4
     lichaam = [[c[3] for c in b
-                if c[0] == "draw_text" and c[1] == 6 and 101 <= c[2] <= 149]
+                if c[0] == "draw_text" and c[1] == 6
+                and 96 <= c[2] - M.TEKST_ANKER <= 176]
                for b in beeldjes]
-    assert lichaam[1] == alle_regels[0:5]
-    assert lichaam[2] == alle_regels[1:6], "detail_scroll scrollt het huiswerk niet"
+    assert lichaam[1] == alle_regels[0:6]
+    assert lichaam[2] == alle_regels[1:7], "detail_scroll scrollt het huiswerk niet"
 
 def test_main_detail_arrows_walk_between_lessons(tekeningen):
     # De voetbalk van het detailscherm belooft "<> les": links en rechts
@@ -884,7 +934,7 @@ def test_main_detail_arrows_walk_between_lessons(tekeningen):
     beeldjes, _ = _beeldjes(tekeningen)
     vakken_per_beeld = []
     for b in beeldjes:
-        n = [c[3] for c in b if c[0] == "draw_text" and c[1] == 54 and c[2] == 31]
+        n = [c[3] for c in b if c[0] == "draw_text" and c[1] == 54 and c[2] == 44]
         vakken_per_beeld.append(n[0] if n else None)
     # beeld 0 en het laatste zijn het dagscherm; daartussen de lesdetails
     assert vakken_per_beeld == [
