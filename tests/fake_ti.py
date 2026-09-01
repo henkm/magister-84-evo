@@ -21,6 +21,9 @@ def install():
                  "draw_text", "show_draw", "clear"):
         setattr(d, naam, _record(naam))
     d.get_screen_dim = lambda: [319, 209]
+    # MAGISTER.py start zichzelf zodra ti_draw echt is; dit merk houdt hem
+    # tegen bij import in de testsuite, waar de tests main() zelf aanroepen.
+    d.IS_NEP = True
     sys.modules["ti_draw"] = d
 
     s = types.ModuleType("ti_system")

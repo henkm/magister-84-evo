@@ -758,5 +758,13 @@ def main():
                 scherm, vak_scroll = "cijfers", 0
 
 
-if __name__ == "__main__":
+# De Evo start een programma met "from MAGISTER import *". __name__ is daar dus
+# "MAGISTER" en niet "__main__", en een gewone main-guard vuurt er nooit.
+# Gemeten op 2026-09-01: het scherm flitste even wit en de app was meteen weer
+# weg, zonder foutmelding -- want er werd niets aangeroepen.
+#
+# Starten doet hij daarom zodra ti_draw er echt is. Op de Mac zonder ti_draw is
+# D None, en in de testsuite draagt de neppe ti_draw het merk IS_NEP; in
+# allebei die gevallen wordt dit bestand alleen gelezen, niet gestart.
+if D is not None and not getattr(D, "IS_NEP", False):
     main()
