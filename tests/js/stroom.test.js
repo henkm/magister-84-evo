@@ -72,6 +72,30 @@ test('alleen de derde fase heeft een echte voortgang', () => {
   assert.equal(percentage(t), 0);
 });
 
+test('een voortgang die toch al gezet is, telt niet mee tijdens ophalen of genereren', () => {
+  let t = na({ type: 'start', kinderen: KINDEREN, kind: KINDEREN[0] },
+    { type: 'sync' });
+  t = volgende(t, { type: 'voortgang', gedaan: 5, totaal: 10 });
+  assert.equal(t.fase, 'ophalen');
+  assert.equal(percentage(t), null, 'ophalen blijft onbepaald, ook met een gezette voortgang');
+
+  t = volgende(t, { type: 'fase', fase: 'genereren' });
+  t = volgende(t, { type: 'voortgang', gedaan: 7, totaal: 10 });
+  assert.equal(t.fase, 'genereren');
+  assert.equal(percentage(t), null, 'genereren blijft onbepaald, ook met een gezette voortgang');
+});
+
+test('feiten uit een eerdere fase blijven staan als een latere fase nieuwe feiten meegeeft', () => {
+  let t = na({ type: 'start', kinderen: KINDEREN, kind: KINDEREN[0] },
+    { type: 'sync' },
+    { type: 'fase', fase: 'genereren', feiten: { lessen: 42, cijfers: 41 } });
+  t = volgende(t, { type: 'fase', fase: 'versturen', feiten: { bytes: 21400 } });
+  assert.equal(t.fase, 'versturen');
+  assert.equal(t.feiten.lessen, 42, 'lessen uit genereren moet blijven staan');
+  assert.equal(t.feiten.cijfers, 41, 'cijfers uit genereren moet blijven staan');
+  assert.equal(t.feiten.bytes, 21400, 'nieuwe feiten uit versturen komen erbij');
+});
+
 test('een geslaagde sync eindigt op gereed met de cijfers erbij', () => {
   const t = na({ type: 'start', kinderen: KINDEREN, kind: KINDEREN[0] },
     { type: 'sync' },
@@ -81,6 +105,15 @@ test('een geslaagde sync eindigt op gereed met de cijfers erbij', () => {
   assert.equal(t.resultaat.lessen, 42);
   assert.equal(t.kind.naam, 'Fenna', 'het kind blijft zichtbaar');
 });
+
+// Elke body moet zeggen wat er met de data op de rekenmachine is gebeurd:
+// niets verstuurd, wel opgehaald maar niet verstuurd, of deels/mogelijk oude
+// data. Dit zijn de vaste formuleringen die dat afdekken.
+const DATA_SITUATIE_FRASES = [
+  'niets naar de rekenmachine gestuurd',
+  'rekenmachine staat',
+  'staat klaar',
+];
 
 test('elke fout die de andere modules kunnen geven heeft een scherm', () => {
   // deze soorten komen uit magister.js, transport.js en send.js
@@ -92,6 +125,10 @@ test('elke fout die de andere modules kunnen geven heeft een scherm', () => {
     for (const veld of ['titel', 'kop', 'body', 'stap', 'knop']) {
       assert.ok(f[veld] && f[veld].length > 0, `${soort} mist ${veld}`);
     }
+    assert.ok(
+      DATA_SITUATIE_FRASES.some((frase) => f.body.includes(frase)),
+      `${soort}: body zegt niet wat er met de data op de rekenmachine is`,
+    );
   }
 });
 

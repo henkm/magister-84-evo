@@ -20,7 +20,7 @@ export const FOUTEN = {
     titel: 'Sync gestopt',
     kop: 'Je bent niet ingelogd bij Magister',
     body: 'De extensie leest mee met je eigen Magister-tab. Zonder ingelogde '
-      + 'tab is er geen data.',
+      + 'tab is er geen data. Er is niets naar de rekenmachine gestuurd.',
     stap: 'Open Magister, log in als ouder en kom hier terug.',
     knop: 'Magister openen',
   },
@@ -45,7 +45,8 @@ export const FOUTEN = {
     titel: 'Sync gestopt',
     kop: 'Dit account heeft geen schooljaar',
     body: 'Magister kent voor dit kind geen aanmelding voor een schooljaar. '
-      + 'Er valt dus geen rooster of cijferlijst op te halen.',
+      + 'Er valt dus geen rooster of cijferlijst op te halen. Er is niets naar '
+      + 'de rekenmachine gestuurd.',
     stap: 'Controleer of je het juiste kind hebt gekozen.',
     knop: 'Ander kind',
   },
