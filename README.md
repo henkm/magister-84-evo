@@ -143,34 +143,57 @@ laatste kiest `&soort=` de fout, bijvoorbeeld
 `?scherm=fout&soort=geen-rekenmachine`. De soorten staan in `FOUTEN` in
 `extension/src/stroom.js`.
 
-## Wat nog nooit op echte hardware heeft gedraaid
+## Wat het apparaat ons heeft geleerd
 
-De hele keten is met tests afgedekt en het protocol is byte voor byte gelijk
-aan de Python-verzender die wél tegen het apparaat bewezen is. Twee dingen
-kunnen alleen door een mens gecontroleerd worden, en zijn dus nog open:
+Op 2026-09-01 heeft de hele keten voor het eerst echt gedraaid: extensie ->
+Magister -> generator -> Kermit -> Evo -> app op het scherm. Vijf aannames
+bleken fout, en alle vijf zijn ze nu vastgelegd in een test die rood wordt als
+iemand ze terugdraait. Ze staan hier omdat ze allemaal dezelfde vorm hebben:
+iets wat op de Mac klopte en op het apparaat niet.
 
-**1. De app op het scherm.** Het pixelraster is opnieuw afgeleid nadat op het
-apparaat gemeten was dat `draw_text` het letterblok op `[y-18, y-3]` zet en dat
-het blok 16 px hoog is. Sindsdien is er niets meer naar de Evo gestuurd. Sluit
-hem aan en stuur beide programma's:
+**1. Twee programma's over één open poort kan niet.** De transfer liep vast op
+28,8 van 46,6 kB -- exact de grens tussen `MAGISTER` en `MAGDATA`. Na het
+`B`-pakket doet de Evo niets meer met die verbinding, dus het tweede `S`-pakket
+liep in een timeout. `stuurAlles` opent en sluit nu per programma een eigen
+verbinding, precies wat `tools/evosend` met twee aanroepen altijd al deed.
+
+**2. `requestPort()` werkt niet in een popupvenster.** Het keuzevenster van
+Chrome kwam nooit in beeld en `requestPort()` gaf meteen `NotFoundError`.
+Vanuit een gewoon tabblad werkt dezelfde aanroep met hetzelfde filter wel; het
+paneel opent daarom in een tabblad.
+
+**3. De Evo start een programma met `from MAGISTER import *`.** `__name__` is
+daar `"MAGISTER"` en niet `"__main__"`, dus een gewone main-guard vuurt nooit:
+wit scherm, meteen weg, geen foutmelding. De app start zichzelf zodra `ti_draw`
+er echt is; `tests/test_app_start.py` importeert het bestand precies zoals het
+apparaat dat doet.
+
+**4. `fill_rect` van 1 pixel hoog knalt** met `tidrawException: Height cannot be
+negative`, terwijl 17 en 22 hoog in hetzelfde beeld goed gingen. Alle strepen
+gaan nu door `draw_line`. De neppe `ti_draw` weigert voortaan een rechthoek
+dunner dan 2 pixel.
+
+**5. `show_draw()` is geen flush maar "pauzeer tot CLEAR".** Het beeld stond er
+perfect op en geen enkele toets deed iets: elke druk kwam bij `show_draw`
+terecht en nooit bij `wait_key`. Tekenwerk is meteen zichtbaar, dus de lus is
+teken -> `wait_key` -> teken. De neppe `ti_draw` laat `show_draw()` nu knallen.
+
+De rode draad: een test-double die alles slikt laat precies die fouten door.
+Elke keer dat het apparaat iets weigerde, is die weigering in `tests/fake_ti.py`
+gezet -- dat is wat de suite sindsdien wél kan zien.
+
+De app zelf is met de hand nagekeken op het scherm: koptekst binnen de blauwe
+balk, de twee regels van een lesregel los van elkaar, elke chip om zijn eigen
+tekst heen, en de begintijd niet meer onder de lesuur-badge door.
+
+Rechtstreeks een nieuwe versie op het apparaat zetten, zonder de extensie:
 
 ```bash
 python3 -m tools.evosend MAGISTER calc/MAGISTER.py
 python3 -m tools.evosend MAGDATA calc/MAGDATA.py
 ```
 
-Kijk dan naar vier dingen: valt de koptekst binnen de blauwe balk, staan de
-twee regels van een lesregel los van elkaar, valt de tekst van elke chip binnen
-de chip, en loopt de begintijd niet meer onder de lesuur-badge door. Een
-dubbeluur vanaf uur 9 (`9-10`, `10-11`) is de zwaarste test voor de badge.
-
-**2. Twee programma's over één open poort.** `stuurAlles` stuurt `MAGISTER` en
-`MAGDATA` achter elkaar zonder de poort tussendoor te sluiten;
-`tools/evosend` heeft altijd één bestand per verbinding gestuurd. Dat het
-apparaat een tweede `S` accepteert na een `B` op dezelfde verbinding is de
-enige aanname waar de "eerst de app, dan de data"-opzet op rust, en die is nog
-niet uitgeprobeerd. Merk je dat de tweede overdracht hangt, dan is dat het:
-de poort tussen de twee programma's sluiten en opnieuw openen lost het op.
+Een lopend programma houdt de poort vast; sluit het eerst af met CLEAR of ON.
 
 Verder is er één bewuste afwijking van het ontwerp: de keuzekaarten tonen
 alleen de naam van het kind, niet de regel `4 havo · Stedelijk Lyceum`
