@@ -86,7 +86,11 @@ async function openTransport(poort) {
     return await SerieelTransport.open(poort);
   } catch (e) {
     const fout = new Error('de poort van de rekenmachine ging niet open');
-    fout.soort = 'geen-rekenmachine';
+    // Elk programma krijgt zijn eigen verbinding, dus dit kan ook halverwege
+    // gebeuren. Dan staat het eerste programma er al op en is "er is niets
+    // naar de rekenmachine gestuurd" niet waar.
+    fout.soort = toestand.voortgang.gedaan
+      ? 'verbinding-afgebroken' : 'geen-rekenmachine';
     throw fout;
   }
 }
@@ -113,7 +117,6 @@ export async function sync() {
   afbreken = false;
   const begonnen = Date.now();
   ga({ type: 'sync' });
-  let transport = null;
   try {
     const { token, tenant } = await haalToken();
     const client = maakClient({ tenant, token });
@@ -141,12 +144,13 @@ export async function sync() {
     const poort = await bestaandePoort();
     if (!poort) { ga({ type: 'geenPoort' }); return; }
     stopAlsAfgebroken();
-    transport = await openTransport(poort);
 
     ga({ type: 'fase', fase: 'versturen' });
     // Altijd allebei, MAGISTER eerst: breekt de transfer af tijdens MAGDATA,
     // dan staat de app er al en toont hij zijn eigen "sync opnieuw"-scherm.
-    await stuurAlles(transport, [
+    // stuurAlles opent en sluit per programma een eigen verbinding; de Evo
+    // doet er maar een per keer.
+    await stuurAlles(() => openTransport(poort), [
       { naam: 'MAGISTER', bron: app },
       { naam: 'MAGDATA', bron: magdata },
     ], (gedaan, totaal) => {
@@ -170,7 +174,6 @@ export async function sync() {
         details: technischeDetails(e) });
     }
   } finally {
-    if (transport) await transport.sluit();
     bezig = false;
   }
 }

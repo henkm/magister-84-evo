@@ -167,15 +167,21 @@ test('een kabel die er halverwege uitgaat komt naar boven', async () => {
 });
 
 test('stuurAlles stuurt MAGISTER voor MAGDATA en telt de voortgang door', async () => {
-  const t = new NepTransport();
+  const transporten = [];
+  const maak = async () => {
+    const t = new NepTransport();
+    transporten.push(t);
+    return t;
+  };
   const namen = [];
   const stappen = [];
-  const totaal = await stuurAlles(t, [
+  const totaal = await stuurAlles(maak, [
     { naam: 'MAGISTER', bron: 'a'.repeat(4000) },
     { naam: 'MAGDATA', bron: 'b'.repeat(4000) },
   ], (gedaan, alles, naam) => { stappen.push(gedaan); namen.push(naam); });
 
-  const urls = t.geschreven.filter((p) => p.type === 'F').map((p) => TEKST.decode(p.data));
+  const urls = transporten.flatMap((t) => t.geschreven
+    .filter((p) => p.type === 'F').map((p) => TEKST.decode(p.data)));
   assert.equal(urls.length, 2);
   assert.equal(namen[0], 'MAGISTER');
   assert.equal(namen[namen.length - 1], 'MAGDATA');
@@ -183,4 +189,43 @@ test('stuurAlles stuurt MAGISTER voor MAGDATA en telt de voortgang door', async 
   for (let i = 1; i < stappen.length; i++) {
     assert.ok(stappen[i] > stappen[i - 1], 'voortgang liep terug tussen twee programmas');
   }
+});
+
+test('elk programma gaat over een eigen verbinding, die daarna dichtgaat', async () => {
+  // Gemeten op een TI-84 Evo-T: na het B-pakket doet het apparaat niets meer
+  // met die verbinding. Twee programma's over een open poort liep vast op
+  // precies de grens tussen de twee (62%).
+  const transporten = [];
+  const maak = async () => {
+    const t = new NepTransport();
+    transporten.push(t);
+    return t;
+  };
+  await stuurAlles(maak, [
+    { naam: 'MAGISTER', bron: 'x = 1\n' },
+    { naam: 'MAGDATA', bron: 'y = 2\n' },
+  ]);
+  assert.equal(transporten.length, 2, 'elk programma hoort een eigen verbinding');
+  for (const t of transporten) {
+    assert.deepEqual(t.soorten, ['S', 'F', 'A', 'D', 'Z', 'B'],
+      'elke verbinding begint zelf met een S en eindigt met een B');
+    assert.equal(t.gesloten, true, 'stuurAlles sluit wat het zelf opent');
+  }
+});
+
+test('een mislukt tweede programma laat geen open verbinding achter', async () => {
+  const transporten = [];
+  const maak = async () => {
+    // de tweede verbinding antwoordt met een NAK op het eerste pakket
+    const t = new NepTransport(transporten.length === 1
+      ? () => encodePacket(0, 'N') : undefined);
+    transporten.push(t);
+    return t;
+  };
+  await assert.rejects(() => stuurAlles(maak, [
+    { naam: 'MAGISTER', bron: 'x = 1\n' },
+    { naam: 'MAGDATA', bron: 'y = 2\n' },
+  ]), /ACK/);
+  assert.equal(transporten.length, 2);
+  assert.equal(transporten[1].gesloten, true, 'de kapotte verbinding bleef open');
 });

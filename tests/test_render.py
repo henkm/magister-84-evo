@@ -936,14 +936,24 @@ def _titels(beeldjes):
         uit.append(kop[0] if kop else None)
     return uit
 
-def test_main_returns_immediately_when_there_is_no_data(tekeningen):
+def test_main_no_data_screen_closes_only_on_clear(tekeningen):
+    """Gemeten op het apparaat: de app sloot meteen na het starten weer af.
+
+    De toets waarmee je de app start staat nog in de toetsenbuffer, dus de
+    eerste wait_key() komt onmiddellijk terug. Sloot dit scherm op elke toets,
+    dan was het scherm nooit te lezen -- terwijl de voetbalk "CLEAR sluiten"
+    belooft. Alleen CLEAR sluit; alles daarvoor tekent het scherm opnieuw.
+    """
     origineel_dagen, origineel_key = M.DAGEN, M.wait_key
     M.DAGEN = []
-    M.wait_key = _toetsen(0)      # main() mag maar één keer wait_key aanroepen
+    M.wait_key = _toetsen(0, M.K_OMLAAG, M.K_CLEAR)
     try:
         M.main()
     finally:
         M.DAGEN, M.wait_key = origineel_dagen, origineel_key
+    beeldjes, rest = _beeldjes(tekeningen)
+    assert len(beeldjes) == 3, "elke toets hoort het scherm opnieuw te tekenen"
+    assert rest == [], "elk beeld hoort geflusht voordat er op een toets wordt gewacht"
     t = [c[3] for c in teksten(tekeningen)]
     assert "geen gegevens gevonden" in t
 
@@ -1284,9 +1294,11 @@ def test_missing_data_screen_does_not_flush_itself(tekeningen):
     assert not [c for c in tekeningen if c[0] == "show_draw"]
 
 def test_main_flushes_the_missing_data_screen_once(tekeningen):
+    # CLEAR sluit meteen, dus dit is precies een ronde door de lus: een beeld,
+    # geflusht, en niets wat er na de laatste show_draw nog bij komt.
     origineel_dagen, origineel_key = M.DAGEN, M.wait_key
     M.DAGEN = []
-    M.wait_key = _toetsen(0)
+    M.wait_key = _toetsen(M.K_CLEAR)
     try:
         M.main()
     finally:

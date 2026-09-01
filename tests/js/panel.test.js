@@ -98,7 +98,9 @@ test('nog eens syncen tijdens een sync opent de poort geen tweede keer', async (
   assert.equal(dom.scherm(), 'bezig');
   los();
   await totScherm(dom, 'gereed');
-  assert.equal(omgeving.poort.aantalOpen, 1);
+  // Twee keer open hoort erbij: een verbinding per programma, en niet meer --
+  // de tweede klik heeft er geen derde bij gemaakt.
+  assert.equal(omgeving.poort.aantalOpen, 2);
 });
 
 // --- 3 · een stille rekenmachine is geen halve transfer --------------------

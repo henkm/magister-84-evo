@@ -76,7 +76,11 @@ export function nepDom() {
   return doc;
 }
 
-/** Laat de lopende beloftes hun werk doen. */
+/**
+ * Laat de lopende beloftes hun werk doen. Bewust setImmediate en geen timer:
+ * een van de tests zet de klok van node stil (t.mock.timers), en met een timer
+ * staat deze lus dan ook stil.
+ */
 export const adem = () => new Promise((res) => { setImmediate(res); });
 
 export async function totScherm(dom, naam, beurten = 5000) {
@@ -116,6 +120,7 @@ export function nepPoort({ antwoordt = true, faalOpen = null,
   poort.open = async (opties) => {
     if (faalOpen) throw faalOpen;
     poort.aantalOpen += 1;
+    poort.dicht = false;
     poort.opties = opties;
   };
   poort.close = async () => { poort.dicht = true; };

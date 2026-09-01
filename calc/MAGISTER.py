@@ -642,10 +642,16 @@ def eerste_les(rijen):
 
 def main():
     if not data_ok():
-        toon_geen_data()
-        D.show_draw()
-        wait_key()
-        return
+        # Gemeten op het apparaat op 2026-09-01: met een enkele wait_key()
+        # sloot dit scherm meteen weer af na het starten van de app -- de
+        # toets waarmee je hem start staat nog in de buffer en telt als
+        # antwoord. De voetbalk belooft "CLEAR sluiten", dus dat is ook de
+        # enige toets die sluit; elke andere tekent het scherm opnieuw.
+        while True:
+            toon_geen_data()
+            D.show_draw()
+            if wait_key() == K_CLEAR:
+                return
 
     scherm = "dag"
     dag, selectie, scroll = 0, eerste_les(DAGEN[0][3]), 0

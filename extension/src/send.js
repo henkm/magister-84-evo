@@ -75,14 +75,35 @@ export async function stuurPython(transport, naam, bron, opVoortgang) {
   return stuurVoorbereid(transport, bereidVoor(naam, bron), opVoortgang);
 }
 
-export async function stuurAlles(transport, programmas, opVoortgang) {
+/**
+ * Stuurt meerdere programma's, elk over een eigen verbinding.
+ *
+ * Gemeten op een TI-84 Evo-T op 2026-09-01: na het B-pakket doet het apparaat
+ * niets meer met die verbinding. Een tweede S-pakket over dezelfde open poort
+ * blijft onbeantwoord, en de transfer liep vast op exact de grens tussen de
+ * twee programma's (28,8 van 46,6 kB, 62%). tools/evosend doet het al goed --
+ * open, een bestand, dicht -- alleen deed deze functie dat niet.
+ *
+ * maakTransport levert per programma een verse verbinding; stuurAlles sluit
+ * hem zelf weer, ook als de transfer onderweg afbreekt.
+ */
+export async function stuurAlles(maakTransport, programmas, opVoortgang) {
   const klaar = programmas.map((p) => bereidVoor(p.naam, p.bron));
   const totaal = klaar.reduce((s, v) => s + v.esc.length, 0);
   let gedaan = 0;
+  // Geen kunstmatige pauze tussen twee programma's: transport.sluit() wacht
+  // zelf tot de poort echt dicht is, en dat is het moment waarop het apparaat
+  // klaar is voor de volgende. Blijkt op het apparaat dat er toch rust nodig
+  // is, dan hoort die hier -- gemeten, niet voor de zekerheid.
   for (const v of klaar) {
-    await stuurVoorbereid(transport, v, (n) => {
-      if (opVoortgang) opVoortgang(gedaan + n, totaal, v.naam);
-    });
+    const transport = await maakTransport();
+    try {
+      await stuurVoorbereid(transport, v, (n) => {
+        if (opVoortgang) opVoortgang(gedaan + n, totaal, v.naam);
+      });
+    } finally {
+      await transport.sluit();
+    }
     gedaan += v.esc.length;
   }
   return totaal;
